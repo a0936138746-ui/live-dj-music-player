@@ -572,11 +572,12 @@ function getTimedStatus(start: number, progress: number, status: Exclude<GuestDj
 }
 
 function getDjDirectorScene(song: Song, progress: number, isPlaying: boolean, hasRedDj: boolean): DjDirectorScene {
-  if (!isPlaying || !hasRedDj || song.mood === "ballad" || song.bpm < 112) {
+  if (!isPlaying || !hasRedDj) {
     return { mainPerformer: "black" };
   }
 
   const isPeakTrack = song.mood === "rock" || song.bpm >= 132;
+  const isSoftTrack = song.mood === "ballad" || song.bpm < 112;
   const directorWindows: Array<{
     end: number;
     label: string;
@@ -593,7 +594,13 @@ function getDjDirectorScene(song: Song, progress: number, isPlaying: boolean, ha
           { end: 74, label: "BLACK DJ CAM", mainPerformer: "red", start: 60, status: "live", support: "black" },
           { end: 88, label: "RED ENCORE", mainPerformer: "black", start: 80, status: "encore", support: "red" },
         ]
-      : song.bpm >= 122
+      : isSoftTrack
+        ? [
+            { end: 36, label: "RED SOFT LIVE", mainPerformer: "black", start: 24, status: "live", support: "red" },
+            { end: 58, label: "BLACK SOFT CAM", mainPerformer: "red", start: 42, status: "live", support: "black" },
+            { end: 78, label: "SOFT DUET", mainPerformer: "black", start: 66, status: "encore", support: "red" },
+          ]
+        : song.bpm >= 122
         ? [
             { end: 30, label: "RED DJ CUE", mainPerformer: "black", start: 18, status: "live", support: "red" },
             { end: 54, label: "BLACK DJ CAM", mainPerformer: "red", start: 40, status: "live", support: "black" },
