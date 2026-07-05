@@ -1088,9 +1088,10 @@ h1 {
 }
 
 .guest-dj.is-ready.status-exiting {
-  opacity: 0.28;
-  transform: translate3d(-32px, 16px, 0) scale(0.88);
-  filter: saturate(0.72) brightness(0.82);
+  opacity: 0;
+  transform: translate3d(-74px, 28px, 0) scale(0.72);
+  filter: saturate(0.56) brightness(0.72) blur(1px);
+  transition: opacity 680ms ease, transform 680ms ease, filter 680ms ease;
 }
 
 .guest-dj span {
