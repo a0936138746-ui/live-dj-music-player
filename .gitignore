@@ -38,7 +38,8 @@ public/assets/*.mp4
 !public/assets/dj-groove.mp4
 !public/assets/dj-peak.mp4
 !public/assets/dj-rock-live.mp4
-!public/assets/dj-guest.mp4
+!public/assets/dj-guest-unique.mp4
+!public/assets/dj-guest-unique-01.mp4
 
 public/assets/holo-singer-frames/
 public/assets/holo-singer-source.png

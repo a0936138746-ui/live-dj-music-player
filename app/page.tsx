@@ -160,8 +160,8 @@ const djVisual = {
   peakAlt: "/assets/dj-peak-01.mp4",
   rockSlot: "/assets/dj-rock-live.mp4",
   rockAlt: "/assets/dj-rock-live-01.mp4",
-  guestSlot: "/assets/dj-guest.mp4",
-  guestAlt: "/assets/dj-guest-01.mp4",
+  guestSlot: "/assets/dj-guest-unique.mp4",
+  guestAlt: "/assets/dj-guest-unique-01.mp4",
 };
 
 const djVideoPools = {
@@ -564,6 +564,17 @@ function resolveDjVideo(video: string, availableVideos: Record<string, boolean>,
   return djVisual.softSlot;
 }
 
+function resolveOptionalDjVideo(video: string, availableVideos: Record<string, boolean>, variantSeed: number) {
+  const pool = djVideoPools[video] ?? [video];
+  const availablePool = pool.filter((source) => availableVideos[source]);
+
+  if (availablePool.length > 0) {
+    return availablePool[Math.abs(variantSeed) % availablePool.length];
+  }
+
+  return undefined;
+}
+
 function getEffectiveSong(
   song: Song,
   analysis: AudioAnalysis | undefined,
@@ -771,7 +782,7 @@ export default function Home() {
   const djVideo = resolveDjVideo(djState.video, availableDjVideos, activeIndex);
   const guestDjVideoSource = getGuestDjVideo(djSong, djVideo, progress, isPlaying);
   const guestDjVideo = guestDjVideoSource
-    ? resolveDjVideo(guestDjVideoSource, availableDjVideos, activeIndex + 1)
+    ? resolveOptionalDjVideo(guestDjVideoSource, availableDjVideos, activeIndex + 1)
     : undefined;
   const energyClass = getEnergyClass(djSong, progress);
   const vocalistCue = getVocalistCue(djSong, progress);
