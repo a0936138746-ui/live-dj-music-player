@@ -179,6 +179,11 @@ const playlistFilterOptions: Array<{ value: PlaylistFilter; label: string }> = [
   { value: "rock", label: "搖滾" },
   { value: "ballad", label: "抒情" },
 ];
+const setFlowMoodOrder: Record<Song["mood"], number> = {
+  ballad: 0,
+  tech: 1,
+  rock: 2,
+};
 const moodOverrideOptions: Array<{ value: Song["mood"] | "auto"; label: string }> = [
   { value: "auto", label: "AUTO" },
   { value: "tech", label: "電音" },
@@ -864,6 +869,19 @@ export default function Home() {
       ),
     [playlistRows],
   );
+  const playlistInsights = useMemo(() => {
+    const totalBpm = playlistRows.reduce((sum, row) => sum + row.effectiveSong.bpm, 0);
+    const manualCount = playlistRows.filter((row) => row.scanStatus.tone === "manual").length;
+    const pendingCount = playlistRows.filter(
+      (row) => row.scanStatus.tone === "pending" || row.scanStatus.tone === "scanning",
+    ).length;
+
+    return {
+      averageBpm: playlistRows.length > 0 ? Math.round(totalBpm / playlistRows.length) : 0,
+      manualCount,
+      pendingCount,
+    };
+  }, [playlistRows]);
   const modeTimeline =
     djSong.mood === "tech"
       ? [
@@ -1447,6 +1465,37 @@ export default function Home() {
     });
   }
 
+  function sortPlaylistForDjSet() {
+    if (playlist.length <= 1) return;
+
+    const activeSongId = song.id;
+    const sortedPlaylist = [...playlist].sort((first, second) => {
+      const firstSong = getEffectiveSong(
+        first,
+        analysisById[first.id],
+        moodOverrides[first.id] ?? "auto",
+        bpmOverrides[first.id],
+      );
+      const secondSong = getEffectiveSong(
+        second,
+        analysisById[second.id],
+        moodOverrides[second.id] ?? "auto",
+        bpmOverrides[second.id],
+      );
+      const moodDifference = setFlowMoodOrder[firstSong.mood] - setFlowMoodOrder[secondSong.mood];
+
+      if (moodDifference !== 0) return moodDifference;
+      if (firstSong.bpm !== secondSong.bpm) return firstSong.bpm - secondSong.bpm;
+      return first.title.localeCompare(second.title, "zh-Hant");
+    });
+
+    setPlaylist(sortedPlaylist);
+    setActiveIndex(Math.max(0, sortedPlaylist.findIndex((item) => item.id === activeSongId)));
+    setPlaylistFilter("all");
+    setSearchQuery("");
+    setImportNotice("已依風格與 BPM 整理歌單");
+  }
+
   function movePlaylistItem(index: number, direction: number) {
     const targetIndex = index + direction;
     if (targetIndex < 0 || targetIndex >= playlist.length) return;
@@ -1802,6 +1851,29 @@ export default function Home() {
                   </button>
                 ))}
               </div>
+              <div className="playlist-insights" aria-label="歌單整理狀態">
+                <span>
+                  <small>平均</small>
+                  <strong>{playlistInsights.averageBpm || "--"} BPM</strong>
+                </span>
+                <span>
+                  <small>手動</small>
+                  <strong>{playlistInsights.manualCount}</strong>
+                </span>
+                <span>
+                  <small>待掃描</small>
+                  <strong>{playlistInsights.pendingCount}</strong>
+                </span>
+              </div>
+              <button
+                className="smart-sort-button"
+                disabled={playlist.length <= 1}
+                onClick={sortPlaylistForDjSet}
+                type="button"
+              >
+                <Sparkles size={14} />
+                智慧整理歌單
+              </button>
             </div>
             {playlist.length === 0 ? (
               <p className="shelf-empty">目前沒有歌曲，請點上方「加入歌曲」或直接拖放音訊檔。</p>
