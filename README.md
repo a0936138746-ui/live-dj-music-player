@@ -93,9 +93,10 @@ DEPLOYMENT.md
 ```text
 NEXT_PUBLIC_MEDIA_BASE_URL=https://your-cdn-domain.com
 NEXT_PUBLIC_ENABLE_SINGER_FRAMES=false
+NEXT_PUBLIC_ENABLE_DJ_VARIANTS=false
 ```
 
-`NEXT_PUBLIC_MEDIA_BASE_URL` 留空時會繼續使用本機 `public`。小歌手圖序列搬到雲端前，`NEXT_PUBLIC_ENABLE_SINGER_FRAMES` 先維持 `false`。
+`NEXT_PUBLIC_MEDIA_BASE_URL` 留空時會繼續使用本機 `public`。小歌手圖序列與備用 DJ 影片搬到雲端前，兩個啟用開關先維持 `false`。
 
 ## 加入真正音樂
 

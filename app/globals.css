@@ -154,7 +154,7 @@ h1 {
 
 .top-actions {
   display: flex;
-  align-items: end;
+  align-items: flex-end;
   gap: 10px;
 }
 
@@ -1297,7 +1297,7 @@ h1 {
 .eq-bars {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
-  align-items: end;
+  align-items: flex-end;
   gap: 10px;
   height: 68px;
 }

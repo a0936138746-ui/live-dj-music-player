@@ -102,6 +102,7 @@ const singerDanceCycleMultipliers: Record<SingerDanceProfile, number> = {
 };
 
 const mediaBaseUrl = (process.env.NEXT_PUBLIC_MEDIA_BASE_URL ?? "").replace(/\/$/, "");
+const djVariantAssetsEnabled = process.env.NEXT_PUBLIC_ENABLE_DJ_VARIANTS === "true";
 const singerFrameAssetsEnabled = process.env.NEXT_PUBLIC_ENABLE_SINGER_FRAMES === "true";
 
 function getMediaUrl(src: string) {
@@ -161,81 +162,12 @@ const djVisual = {
 };
 
 const djVideoPools = {
-  [djVisual.softSlot]: [djVisual.softSlot, djVisual.softAlt],
-  [djVisual.grooveSlot]: [djVisual.grooveSlot, djVisual.grooveAlt],
-  [djVisual.peakSlot]: [djVisual.peakSlot, djVisual.peakAlt],
-  [djVisual.rockSlot]: [djVisual.rockSlot, djVisual.rockAlt],
-  [djVisual.guestSlot]: [djVisual.guestSlot, djVisual.guestAlt],
+  [djVisual.softSlot]: djVariantAssetsEnabled ? [djVisual.softSlot, djVisual.softAlt] : [djVisual.softSlot],
+  [djVisual.grooveSlot]: djVariantAssetsEnabled ? [djVisual.grooveSlot, djVisual.grooveAlt] : [djVisual.grooveSlot],
+  [djVisual.peakSlot]: djVariantAssetsEnabled ? [djVisual.peakSlot, djVisual.peakAlt] : [djVisual.peakSlot],
+  [djVisual.rockSlot]: djVariantAssetsEnabled ? [djVisual.rockSlot, djVisual.rockAlt] : [djVisual.rockSlot],
+  [djVisual.guestSlot]: djVariantAssetsEnabled ? [djVisual.guestSlot, djVisual.guestAlt] : [djVisual.guestSlot],
 };
-
-const songs: Song[] = [
-  {
-    id: "mandarin-night",
-    title: "霓虹雨夜",
-    artist: "Mika Lin",
-    language: "中文",
-    mood: "tech",
-    bpm: 124,
-    duration: 214,
-    audioSrc: "/music/mandarin-night.mp3",
-    visualVideo: djVisual.grooveSlot,
-    minAge: 0,
-    accent: "#25f3ff",
-    lyric: ["霓虹落在掌心", "人群跟著光前進", "今晚讓心跳重新開機"],
-  },
-  {
-    id: "thai-pulse",
-    title: "Bangkok Soft Pulse",
-    artist: "Nara Wave",
-    language: "泰文",
-    mood: "ballad",
-    bpm: 92,
-    duration: 188,
-    audioSrc: "/music/thai-pulse_ยิ้มรับปีใหม่ไปด้วยกัน.mp3",
-    minAge: 0,
-    accent: "#ffb74a",
-    lyric: ["เสียงลมพาใจไป", "แสงเมืองค่อย ๆ ละลาย", "คืนนี้ยังมีเรา"],
-  },
-  {
-    id: "tokyo-amp",
-    title: "Tokyo Amp",
-    artist: "Aoi Signal",
-    language: "日文",
-    mood: "rock",
-    bpm: 138,
-    duration: 226,
-    audioSrc: "/music/tokyo-amp[限界の先へ].mp3",
-    minAge: 13,
-    accent: "#ff4f8b",
-    lyric: ["夜を切り裂くビート", "指先に火花が咲く", "まだ終わらないステージ"],
-  },
-  {
-    id: "midnight-voltage",
-    title: "Midnight Voltage",
-    artist: "Luna Drive",
-    language: "英文",
-    mood: "tech",
-    bpm: 128,
-    duration: 218,
-    audioSrc: "/music/midnight-voltage.mp3",
-    minAge: 13,
-    accent: "#8df7ff",
-    lyric: ["Turn up the midnight voltage", "Feel the skyline start to move", "We are glowing in the sound"],
-  },
-  {
-    id: "instrumental-air",
-    title: "Afterglow Instrumental",
-    artist: "AI Session",
-    language: "純音樂",
-    mood: "tech",
-    bpm: 116,
-    duration: 240,
-    audioSrc: "/music/instrumental-air.mp3",
-    minAge: 0,
-    accent: "#7cff6b",
-    lyric: ["純音樂段落", "讓燈光跟著呼吸", "下一拍交給想像"],
-  },
-];
 
 const ageOptions = ["全年齡", "13+", "16+", "18+"];
 const playlistFilterOptions: Array<{ value: PlaylistFilter; label: string }> = [
@@ -250,7 +182,7 @@ const moodOverrideOptions: Array<{ value: Song["mood"] | "auto"; label: string }
   { value: "rock", label: "搖滾" },
   { value: "ballad", label: "抒情" },
 ];
-const djVideoSources = [...new Set(Object.values(djVisual))];
+const djVideoSources = [...new Set(Object.values(djVideoPools).flat())];
 const analysisConfidenceThreshold = 0.22;
 const localSongDbName = "live-dj-local-songs";
 const localSongStoreName = "songs";
@@ -269,18 +201,7 @@ const emptySong: Song = {
   lyric: ["點選上方的加入歌曲", "匯入你的音樂後就會出現在歌單", "DJ 會依歌曲風格開始演出"],
 };
 
-const plannedDjVideoSlots = [
-  djVisual.softSlot,
-  djVisual.softAlt,
-  djVisual.grooveSlot,
-  djVisual.grooveAlt,
-  djVisual.peakSlot,
-  djVisual.peakAlt,
-  djVisual.rockSlot,
-  djVisual.rockAlt,
-  djVisual.guestSlot,
-  djVisual.guestAlt,
-];
+const plannedDjVideoSlots = djVideoSources;
 
 function openLocalSongDb() {
   return new Promise<IDBDatabase>((resolve, reject) => {
@@ -2094,7 +2015,7 @@ export default function Home() {
         </section>
       </section>
       <div aria-hidden="true" className="video-preloaders">
-        {djVideoSources.map((source) => (
+        {djVideoSources.filter((source) => availableDjVideos[source]).map((source) => (
           <video key={source} muted playsInline preload="auto" src={getMediaUrl(source)} />
         ))}
       </div>

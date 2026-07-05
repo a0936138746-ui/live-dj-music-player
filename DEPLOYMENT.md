@@ -69,6 +69,12 @@ NEXT_PUBLIC_MEDIA_BASE_URL=https://your-cdn-domain.com
 NEXT_PUBLIC_ENABLE_SINGER_FRAMES=true
 ```
 
+備用 DJ 影片也搬到雲端後，再加：
+
+```text
+NEXT_PUBLIC_ENABLE_DJ_VARIANTS=true
+```
+
 播放器會自動把：
 
 ```text
