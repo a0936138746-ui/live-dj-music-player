@@ -1051,6 +1051,12 @@ h1 {
   opacity: 1;
 }
 
+.dj-motion.performer-red {
+  filter:
+    drop-shadow(0 26px 46px rgba(0, 0, 0, 0.58))
+    drop-shadow(0 0 22px rgba(255, 79, 139, 0.28));
+}
+
 .guest-dj {
   position: absolute;
   left: clamp(18px, 3.5vw, 46px);
@@ -1078,6 +1084,20 @@ h1 {
 .guest-dj.is-ready.status-entering {
   opacity: 0.9;
   transform: translate3d(-4px, 0, 0) scale(0.98);
+}
+
+.guest-dj.performer-black {
+  border-color: color-mix(in srgb, #25f3ff 58%, white 8%);
+  box-shadow:
+    0 18px 38px rgba(0, 0, 0, 0.38),
+    0 0 30px rgba(37, 243, 255, 0.22);
+}
+
+.guest-dj.performer-red {
+  border-color: color-mix(in srgb, #ff4f8b 62%, white 10%);
+  box-shadow:
+    0 18px 38px rgba(0, 0, 0, 0.38),
+    0 0 30px rgba(255, 79, 139, 0.25);
 }
 
 .guest-dj.is-ready.status-encore {

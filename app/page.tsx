@@ -64,11 +64,19 @@ type VisualMode =
 type SingerDanceProfile = "soft" | "groove" | "hype" | "drop";
 type PlaylistFilter = "all" | Song["mood"];
 type ScanStatusTone = "auto" | "manual" | "fallback" | "pending" | "scanning";
+type DjPerformer = "black" | "red";
 type GuestDjStatus = "entering" | "live" | "exiting" | "encore";
-type GuestDjScene = {
+type GuestDjCue = {
   label: string;
+  performer: DjPerformer;
   status: GuestDjStatus;
+};
+type GuestDjScene = GuestDjCue & {
   video: string;
+};
+type DjDirectorScene = {
+  mainPerformer: DjPerformer;
+  support?: GuestDjCue;
 };
 
 type StoredLocalSong = Omit<Song, "audioSrc"> & {
@@ -551,42 +559,56 @@ function chooseVisualMode({
   return "idle";
 }
 
-function getGuestDjScene(song: Song, mainVideo: string, progress: number, isPlaying: boolean): GuestDjScene | undefined {
-  if (!isPlaying || song.mood === "ballad" || song.bpm < 112) return undefined;
-  if (mainVideo === djVisual.guestSlot) return undefined;
+function getTimedStatus(start: number, progress: number, status: Exclude<GuestDjStatus, "entering" | "exiting">) {
+  return progress - start < 2.2 ? "entering" : status;
+}
+
+function getDjDirectorScene(song: Song, progress: number, isPlaying: boolean, hasRedDj: boolean): DjDirectorScene {
+  if (!isPlaying || !hasRedDj || song.mood === "ballad" || song.bpm < 112) {
+    return { mainPerformer: "black" };
+  }
 
   const isPeakTrack = song.mood === "rock" || song.bpm >= 132;
-  const guestWindows: Array<{
+  const directorWindows: Array<{
     end: number;
     label: string;
+    mainPerformer: DjPerformer;
     start: number;
     status: Exclude<GuestDjStatus, "entering" | "exiting">;
+    support?: DjPerformer;
   }> =
     isPeakTrack
       ? [
-          { end: 24, label: "2ND DJ LIVE", start: 10, status: "live" },
-          { end: 60, label: "DJ BATTLE", start: 48, status: "live" },
-          { end: 88, label: "ENCORE", start: 80, status: "encore" },
+          { end: 22, label: "RED DJ CUE", mainPerformer: "black", start: 10, status: "live", support: "red" },
+          { end: 40, label: "RED MAIN", mainPerformer: "red", start: 24, status: "live", support: "black" },
+          { end: 58, label: "DJ BATTLE", mainPerformer: "black", start: 48, status: "live", support: "red" },
+          { end: 74, label: "RED TAKEOVER", mainPerformer: "red", start: 60, status: "live", support: "black" },
+          { end: 88, label: "RED ENCORE", mainPerformer: "black", start: 80, status: "encore", support: "red" },
         ]
       : song.bpm >= 122
         ? [
-            { end: 30, label: "2ND DJ LIVE", start: 18, status: "live" },
-            { end: 74, label: "BACK TO STAGE", start: 64, status: "encore" },
+            { end: 30, label: "RED DJ CUE", mainPerformer: "black", start: 18, status: "live", support: "red" },
+            { end: 54, label: "RED MAIN", mainPerformer: "red", start: 40, status: "live", support: "black" },
+            { end: 76, label: "RED ENCORE", mainPerformer: "black", start: 64, status: "encore", support: "red" },
           ]
         : [
-            { end: 38, label: "2ND DJ LIVE", start: 28, status: "live" },
-            { end: 84, label: "FINAL CALL", start: 76, status: "encore" },
+            { end: 38, label: "RED DJ CUE", mainPerformer: "black", start: 28, status: "live", support: "red" },
+            { end: 68, label: "RED MAIN", mainPerformer: "red", start: 56, status: "live", support: "black" },
+            { end: 84, label: "FINAL CALL", mainPerformer: "black", start: 76, status: "encore", support: "red" },
           ];
-  const activeWindow = guestWindows.find((window) => progress >= window.start && progress < window.end);
+  const activeWindow = directorWindows.find((window) => progress >= window.start && progress < window.end);
 
-  if (!activeWindow) return undefined;
-
-  const status = progress - activeWindow.start < 2.2 ? "entering" : activeWindow.status;
+  if (!activeWindow) return { mainPerformer: "black" };
 
   return {
-    label: activeWindow.label,
-    status,
-    video: djVisual.guestSlot,
+    mainPerformer: activeWindow.mainPerformer,
+    support: activeWindow.support
+      ? {
+          label: activeWindow.label,
+          performer: activeWindow.support,
+          status: getTimedStatus(activeWindow.start, progress, activeWindow.status),
+        }
+      : undefined,
   };
 }
 
@@ -818,11 +840,18 @@ export default function Home() {
   const djSong = getEffectiveSong(song, activeAnalysis, moodOverride, bpmOverride);
   const djState = getDjState(djSong, progress, isPlaying);
   const djEnergy = djState.label;
-  const djVideo = resolveDjVideo(djState.video, availableDjVideos, activeIndex);
-  const guestDjScene = getGuestDjScene(djSong, djVideo, progress, isPlaying);
-  const guestDjVideo = renderedGuestDjScene
-    ? resolveOptionalDjVideo(renderedGuestDjScene.video, availableDjVideos, activeIndex + 1)
-    : undefined;
+  const blackDjVideo = resolveDjVideo(djState.video, availableDjVideos, activeIndex);
+  const redDjVideo = resolveOptionalDjVideo(djVisual.guestSlot, availableDjVideos, activeIndex + 1);
+  const directorScene = getDjDirectorScene(djSong, progress, isPlaying, Boolean(redDjVideo));
+  const djVideo = directorScene.mainPerformer === "red" && redDjVideo ? redDjVideo : blackDjVideo;
+  const liveSupportDjScene =
+    directorScene.support && (directorScene.support.performer !== "red" || redDjVideo)
+      ? {
+          ...directorScene.support,
+          video: directorScene.support.performer === "red" ? (redDjVideo as string) : blackDjVideo,
+        }
+      : undefined;
+  const supportDjVideo = renderedGuestDjScene?.video;
   const energyClass = getEnergyClass(djSong, progress);
   const vocalistCue = getVocalistCue(djSong, progress);
   const energyLabel =
@@ -1330,7 +1359,7 @@ export default function Home() {
 
     video.playbackRate = Math.min(1.12, Math.max(0.86, videoRate));
     video.play().catch(() => undefined);
-  }, [guestDjVideo, videoRate]);
+  }, [supportDjVideo, videoRate]);
 
   useEffect(() => {
     if (guestExitTimerRef.current !== null) {
@@ -1338,8 +1367,8 @@ export default function Home() {
       guestExitTimerRef.current = null;
     }
 
-    if (guestDjScene) {
-      setRenderedGuestDjScene(guestDjScene);
+    if (liveSupportDjScene) {
+      setRenderedGuestDjScene(liveSupportDjScene);
       return;
     }
 
@@ -1364,7 +1393,7 @@ export default function Home() {
         guestExitTimerRef.current = null;
       }
     };
-  }, [guestDjScene?.label, guestDjScene?.status, guestDjScene?.video]);
+  }, [liveSupportDjScene?.label, liveSupportDjScene?.performer, liveSupportDjScene?.status, liveSupportDjScene?.video]);
 
   useEffect(() => {
     const video = document.querySelector<HTMLVideoElement>(".dj-video");
@@ -1373,7 +1402,7 @@ export default function Home() {
 
   useEffect(() => {
     setIsGuestVideoReady(false);
-  }, [guestDjVideo]);
+  }, [supportDjVideo]);
 
   useEffect(() => {
     if (isPlaying) return;
@@ -2124,11 +2153,12 @@ export default function Home() {
                 ))}
               </div>
             </div>
-            <div className="dj-motion">
+            <div className={`dj-motion performer-${directorScene.mainPerformer}`}>
               <video
                 aria-label={isPlaying ? "AI DJ 播放動作影片" : "AI DJ 待機影片"}
                 autoPlay
                 className={`dj-video ${isVideoReady ? "is-ready" : ""}`}
+                key={djVideo}
                 loop
                 muted
                 onLoadedData={() => setIsVideoReady(true)}
@@ -2137,9 +2167,9 @@ export default function Home() {
                 src={getMediaUrl(djVideo)}
               />
             </div>
-            {renderedGuestDjScene && guestDjVideo ? (
+            {renderedGuestDjScene && supportDjVideo ? (
               <div
-                className={`guest-dj status-${renderedGuestDjScene.status} ${
+                className={`guest-dj performer-${renderedGuestDjScene.performer} status-${renderedGuestDjScene.status} ${
                   isGuestVideoReady ? "is-ready" : ""
                 }`}
                 aria-label="Guest DJ"
@@ -2152,7 +2182,7 @@ export default function Home() {
                   onLoadedData={() => setIsGuestVideoReady(true)}
                   playsInline
                   preload="auto"
-                  src={getMediaUrl(guestDjVideo)}
+                  src={getMediaUrl(supportDjVideo)}
                 />
               </div>
             ) : null}
