@@ -185,6 +185,14 @@ const djVideoPools = {
   [djVisual.rockSlot]: djVariantAssetsEnabled ? [djVisual.rockSlot, djVisual.rockAlt] : [djVisual.rockSlot],
   [djVisual.guestSlot]: djVariantAssetsEnabled ? [djVisual.guestSlot, djVisual.guestAlt] : [djVisual.guestSlot],
 };
+const redDjVideoSources = [
+  djVisual.softAlt,
+  djVisual.grooveAlt,
+  djVisual.peakAlt,
+  djVisual.rockAlt,
+  djVisual.guestSlot,
+  djVisual.guestAlt,
+];
 
 const ageOptions = ["全年齡", "13+", "16+", "18+"];
 const playlistFilterOptions: Array<{ value: PlaylistFilter; label: string }> = [
@@ -208,7 +216,7 @@ const stageLedBars = Array.from({ length: 18 }, (_, index) => index);
 const stageLaserBeams = Array.from({ length: 7 }, (_, index) => index);
 const stageFogLayers = Array.from({ length: 3 }, (_, index) => index);
 const stageBurstRings = Array.from({ length: 3 }, (_, index) => index);
-const djVideoSources = [...new Set(Object.values(djVideoPools).flat())];
+const djVideoSources = [...new Set([...Object.values(djVideoPools).flat(), ...redDjVideoSources])];
 const analysisConfidenceThreshold = 0.22;
 const localSongDbName = "live-dj-local-songs";
 const localSongStoreName = "songs";
@@ -580,20 +588,20 @@ function getDjDirectorScene(song: Song, progress: number, isPlaying: boolean, ha
     isPeakTrack
       ? [
           { end: 22, label: "RED DJ CUE", mainPerformer: "black", start: 10, status: "live", support: "red" },
-          { end: 40, label: "RED MAIN", mainPerformer: "red", start: 24, status: "live", support: "black" },
+          { end: 40, label: "BLACK DJ CAM", mainPerformer: "red", start: 24, status: "live", support: "black" },
           { end: 58, label: "DJ BATTLE", mainPerformer: "black", start: 48, status: "live", support: "red" },
-          { end: 74, label: "RED TAKEOVER", mainPerformer: "red", start: 60, status: "live", support: "black" },
+          { end: 74, label: "BLACK DJ CAM", mainPerformer: "red", start: 60, status: "live", support: "black" },
           { end: 88, label: "RED ENCORE", mainPerformer: "black", start: 80, status: "encore", support: "red" },
         ]
       : song.bpm >= 122
         ? [
             { end: 30, label: "RED DJ CUE", mainPerformer: "black", start: 18, status: "live", support: "red" },
-            { end: 54, label: "RED MAIN", mainPerformer: "red", start: 40, status: "live", support: "black" },
+            { end: 54, label: "BLACK DJ CAM", mainPerformer: "red", start: 40, status: "live", support: "black" },
             { end: 76, label: "RED ENCORE", mainPerformer: "black", start: 64, status: "encore", support: "red" },
           ]
         : [
             { end: 38, label: "RED DJ CUE", mainPerformer: "black", start: 28, status: "live", support: "red" },
-            { end: 68, label: "RED MAIN", mainPerformer: "red", start: 56, status: "live", support: "black" },
+            { end: 68, label: "BLACK DJ CAM", mainPerformer: "red", start: 56, status: "live", support: "black" },
             { end: 84, label: "FINAL CALL", mainPerformer: "black", start: 76, status: "encore", support: "red" },
           ];
   const activeWindow = directorWindows.find((window) => progress >= window.start && progress < window.end);
@@ -610,6 +618,20 @@ function getDjDirectorScene(song: Song, progress: number, isPlaying: boolean, ha
         }
       : undefined,
   };
+}
+
+function getPerformerDjVideo(video: string, performer: DjPerformer) {
+  if (performer === "black") return video;
+
+  const redVideoMap: Record<string, string> = {
+    [djVisual.idleVideo]: djVisual.softAlt,
+    [djVisual.softSlot]: djVisual.softAlt,
+    [djVisual.grooveSlot]: djVisual.grooveAlt,
+    [djVisual.peakSlot]: djVisual.peakAlt,
+    [djVisual.rockSlot]: djVisual.rockAlt,
+  };
+
+  return redVideoMap[video] ?? djVisual.grooveAlt;
 }
 
 function resolveDjVideo(video: string, availableVideos: Record<string, boolean>, variantSeed: number) {
@@ -841,7 +863,9 @@ export default function Home() {
   const djState = getDjState(djSong, progress, isPlaying);
   const djEnergy = djState.label;
   const blackDjVideo = resolveDjVideo(djState.video, availableDjVideos, activeIndex);
-  const redDjVideo = resolveOptionalDjVideo(djVisual.guestSlot, availableDjVideos, activeIndex + 1);
+  const redDjVideo =
+    resolveOptionalDjVideo(getPerformerDjVideo(djState.video, "red"), availableDjVideos, activeIndex + 1) ??
+    resolveOptionalDjVideo(djVisual.guestSlot, availableDjVideos, activeIndex + 1);
   const directorScene = getDjDirectorScene(djSong, progress, isPlaying, Boolean(redDjVideo));
   const djVideo = directorScene.mainPerformer === "red" && redDjVideo ? redDjVideo : blackDjVideo;
   const liveSupportDjScene =
