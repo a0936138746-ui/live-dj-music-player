@@ -685,6 +685,7 @@ h1 {
 }
 
 .dj-stage {
+  isolation: isolate;
   position: relative;
   min-height: 570px;
   overflow: hidden;
@@ -707,6 +708,7 @@ h1 {
   content: "";
   opacity: 0.58;
   pointer-events: none;
+  z-index: 0;
 }
 
 .dj-stage::after {
@@ -718,6 +720,7 @@ h1 {
   content: "";
   mix-blend-mode: screen;
   pointer-events: none;
+  z-index: 6;
 }
 
 .stage-orbit {
@@ -732,6 +735,7 @@ h1 {
   opacity: 0.42;
   box-shadow: 0 0 38px color-mix(in srgb, var(--accent) 22%, transparent);
   pointer-events: none;
+  z-index: 2;
 }
 
 .crowd-pulse {
@@ -787,6 +791,7 @@ h1 {
 .light-rig {
   position: absolute;
   inset: 0;
+  z-index: 2;
   display: flex;
   justify-content: space-around;
   padding-top: 22px;
@@ -812,10 +817,214 @@ h1 {
   transform: rotate(12deg);
 }
 
+.festival-stage-fx {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.led-wall {
+  position: absolute;
+  left: 50%;
+  top: 24px;
+  display: grid;
+  grid-template-columns: repeat(18, 1fr);
+  align-items: end;
+  gap: 5px;
+  width: min(82%, 680px);
+  height: 46%;
+  border: 1px solid color-mix(in srgb, var(--accent) 18%, rgba(255, 255, 255, 0.1));
+  border-radius: 8px;
+  padding: 16px 18px 20px;
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(rgba(255, 255, 255, 0.045) 1px, transparent 1px),
+    radial-gradient(circle at 50% 42%, color-mix(in srgb, var(--accent) 28%, transparent), transparent 46%),
+    rgba(5, 7, 14, 0.54);
+  background-size: 34px 34px, 34px 34px, auto, auto;
+  box-shadow:
+    inset 0 0 44px rgba(0, 0, 0, 0.4),
+    0 0 34px color-mix(in srgb, var(--accent) 14%, transparent);
+  opacity: calc(0.42 + var(--stage-energy) * 0.28);
+  transform: translateX(-50%) perspective(520px) rotateX(3deg);
+}
+
+.led-wall span {
+  min-width: 0;
+  height: 32%;
+  border-radius: 6px 6px 2px 2px;
+  background: linear-gradient(180deg, var(--beam-one), var(--beam-two));
+  box-shadow: 0 0 16px color-mix(in srgb, var(--accent) 22%, transparent);
+  opacity: calc(0.32 + var(--stage-energy) * 0.5);
+  transform-origin: center bottom;
+}
+
+.dj-stage.is-playing .led-wall span {
+  animation: led-stage-bounce calc(var(--beat-ms) * 2) ease-in-out infinite alternate;
+}
+
+.led-wall span:nth-child(3n + 1) {
+  height: 48%;
+  animation-delay: calc(var(--beat-ms) * -0.18);
+}
+
+.led-wall span:nth-child(3n + 2) {
+  height: 72%;
+  background: linear-gradient(180deg, var(--beam-three), var(--beam-one));
+  animation-delay: calc(var(--beat-ms) * -0.36);
+}
+
+.led-wall span:nth-child(4n) {
+  height: 88%;
+  animation-delay: calc(var(--beat-ms) * -0.52);
+}
+
+.laser-fan {
+  position: absolute;
+  inset: 0;
+  opacity: calc(0.32 + var(--stage-energy) * 0.44);
+  mix-blend-mode: screen;
+}
+
+.laser-fan span {
+  position: absolute;
+  left: 50%;
+  top: 8%;
+  width: 4px;
+  height: 76%;
+  border-radius: 999px;
+  background: linear-gradient(180deg, var(--beam-one), transparent 82%);
+  filter: blur(0.3px);
+  transform-origin: center top;
+}
+
+.laser-fan span:nth-child(1) {
+  transform: rotate(-33deg);
+}
+
+.laser-fan span:nth-child(2) {
+  background: linear-gradient(180deg, var(--beam-two), transparent 82%);
+  transform: rotate(-21deg);
+}
+
+.laser-fan span:nth-child(3) {
+  transform: rotate(-10deg);
+}
+
+.laser-fan span:nth-child(4) {
+  background: linear-gradient(180deg, var(--beam-three), transparent 82%);
+  transform: rotate(0deg);
+}
+
+.laser-fan span:nth-child(5) {
+  transform: rotate(11deg);
+}
+
+.laser-fan span:nth-child(6) {
+  background: linear-gradient(180deg, var(--beam-two), transparent 82%);
+  transform: rotate(23deg);
+}
+
+.laser-fan span:nth-child(7) {
+  transform: rotate(35deg);
+}
+
+.dj-stage.is-playing .laser-fan span {
+  animation: laser-sweep calc(var(--beat-ms) * 8) ease-in-out infinite;
+}
+
+.stage-fog {
+  position: absolute;
+  right: -8%;
+  bottom: 18%;
+  left: -8%;
+  height: 34%;
+  opacity: calc(0.18 + var(--stage-energy) * 0.18);
+}
+
+.stage-fog span {
+  position: absolute;
+  inset: auto 0 0;
+  height: 42%;
+  border-radius: 50%;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--accent) 20%, rgba(255, 255, 255, 0.16)), transparent);
+  filter: blur(18px);
+  transform: translateX(-18%) scaleX(1.2);
+}
+
+.stage-fog span:nth-child(2) {
+  bottom: 28%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.16), transparent);
+  transform: translateX(15%) scaleX(1.1);
+}
+
+.stage-fog span:nth-child(3) {
+  bottom: 52%;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--beam-two) 18%, rgba(255, 255, 255, 0.14)), transparent);
+  transform: translateX(-4%) scaleX(0.9);
+}
+
+.dj-stage.is-playing .stage-fog span {
+  animation: fog-drift calc(var(--beat-ms) * 18) ease-in-out infinite;
+}
+
+.stage-burst {
+  position: absolute;
+  left: 50%;
+  bottom: 28%;
+  width: min(58%, 470px);
+  aspect-ratio: 2.4;
+  opacity: 0;
+  transform: translateX(-50%);
+}
+
+.stage-burst span {
+  position: absolute;
+  inset: 0;
+  border: 1px solid color-mix(in srgb, var(--accent) 58%, transparent);
+  border-radius: 50%;
+  box-shadow: 0 0 28px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+
+.stage-burst span:nth-child(2) {
+  inset: 12%;
+  border-color: color-mix(in srgb, var(--beam-two) 52%, transparent);
+}
+
+.stage-burst span:nth-child(3) {
+  inset: 24%;
+  border-color: color-mix(in srgb, var(--beam-three) 46%, transparent);
+}
+
+.audio-kick .stage-burst,
+.energy-fast .dj-stage.is-playing .stage-burst {
+  animation: stage-burst-pop calc(var(--beat-ms) * 2) ease-out infinite;
+}
+
+.energy-fast .dj-stage.is-playing .led-wall {
+  opacity: calc(0.58 + var(--stage-energy) * 0.28 + var(--bass-level) * 0.12);
+}
+
+.mood-ballad .laser-fan,
+.mood-ballad .stage-burst {
+  opacity: 0.16;
+}
+
+.mood-rock .led-wall {
+  background:
+    linear-gradient(90deg, rgba(255, 190, 80, 0.08) 1px, transparent 1px),
+    linear-gradient(rgba(255, 92, 70, 0.06) 1px, transparent 1px),
+    radial-gradient(circle at 50% 42%, rgba(255, 70, 54, 0.34), transparent 46%),
+    rgba(13, 5, 6, 0.58);
+}
+
 .dj-motion {
   position: absolute;
   left: 50%;
   bottom: 64px;
+  z-index: 3;
   width: min(72%, 520px);
   transform: translateX(-50%);
   transform-origin: center bottom;
@@ -1392,6 +1601,7 @@ h1 {
   position: absolute;
   left: 50%;
   bottom: 22px;
+  z-index: 5;
   width: min(74%, 560px);
   transform: translateX(-50%);
   border: 1px solid rgba(255, 255, 255, 0.18);
@@ -2572,6 +2782,67 @@ h1 {
   45% {
     opacity: 1;
     transform: translateX(5px);
+  }
+}
+
+@keyframes led-stage-bounce {
+  from {
+    opacity: calc(0.28 + var(--stage-energy) * 0.42);
+    transform: scaleY(0.52);
+  }
+
+  to {
+    opacity: calc(0.56 + var(--stage-energy) * 0.4 + var(--bass-level) * 0.18);
+    transform: scaleY(1);
+  }
+}
+
+@keyframes laser-sweep {
+  0%,
+  100% {
+    opacity: 0.36;
+    filter: blur(0.5px);
+    translate: 0 0;
+  }
+
+  45% {
+    opacity: calc(0.58 + var(--stage-energy) * 0.32);
+    filter: blur(1px);
+    translate: -8px 0;
+  }
+
+  70% {
+    opacity: calc(0.46 + var(--bass-level) * 0.4);
+    translate: 10px 0;
+  }
+}
+
+@keyframes fog-drift {
+  0%,
+  100% {
+    opacity: 0.64;
+    translate: -2% 0;
+  }
+
+  50% {
+    opacity: calc(0.72 + var(--stage-energy) * 0.2);
+    translate: 4% -4px;
+  }
+}
+
+@keyframes stage-burst-pop {
+  0% {
+    opacity: 0;
+    transform: translateX(-50%) scale(0.72);
+  }
+
+  18% {
+    opacity: calc(0.34 + var(--bass-level) * 0.46 + var(--stage-energy) * 0.24);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateX(-50%) scale(1.22);
   }
 }
 

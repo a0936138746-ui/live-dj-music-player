@@ -190,6 +190,10 @@ const moodOverrideOptions: Array<{ value: Song["mood"] | "auto"; label: string }
   { value: "rock", label: "搖滾" },
   { value: "ballad", label: "抒情" },
 ];
+const stageLedBars = Array.from({ length: 18 }, (_, index) => index);
+const stageLaserBeams = Array.from({ length: 7 }, (_, index) => index);
+const stageFogLayers = Array.from({ length: 3 }, (_, index) => index);
+const stageBurstRings = Array.from({ length: 3 }, (_, index) => index);
 const djVideoSources = [...new Set(Object.values(djVideoPools).flat())];
 const analysisConfidenceThreshold = 0.22;
 const localSongDbName = "live-dj-local-songs";
@@ -1780,7 +1784,9 @@ export default function Home() {
           "--beat-ms": `${beatMs}ms`,
           "--eq-ms": `${eqMs}ms`,
           "--light-ms": `${lightMs}ms`,
+          "--bass-level": liveAudioMetrics.bass.toFixed(2),
           "--spin-ms": `${spinMs}ms`,
+          "--stage-energy": Math.max(visualEnergy, liveAudioMetrics.energy).toFixed(2),
         } as React.CSSProperties
       }
     >
@@ -2009,6 +2015,28 @@ export default function Home() {
               <span />
               <span />
               <span />
+            </div>
+            <div className="festival-stage-fx" aria-hidden="true">
+              <div className="led-wall">
+                {stageLedBars.map((bar) => (
+                  <span key={bar} />
+                ))}
+              </div>
+              <div className="laser-fan">
+                {stageLaserBeams.map((beam) => (
+                  <span key={beam} />
+                ))}
+              </div>
+              <div className="stage-fog">
+                {stageFogLayers.map((layer) => (
+                  <span key={layer} />
+                ))}
+              </div>
+              <div className="stage-burst">
+                {stageBurstRings.map((ring) => (
+                  <span key={ring} />
+                ))}
+              </div>
             </div>
             <div className="dj-motion">
               <video
