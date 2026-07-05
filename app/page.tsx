@@ -64,6 +64,12 @@ type VisualMode =
 type SingerDanceProfile = "soft" | "groove" | "hype" | "drop";
 type PlaylistFilter = "all" | Song["mood"];
 type ScanStatusTone = "auto" | "manual" | "fallback" | "pending" | "scanning";
+type GuestDjStatus = "entering" | "live" | "exiting" | "encore";
+type GuestDjScene = {
+  label: string;
+  status: GuestDjStatus;
+  video: string;
+};
 
 type StoredLocalSong = Omit<Song, "audioSrc"> & {
   bpmOverride?: number;
@@ -545,12 +551,42 @@ function chooseVisualMode({
   return "idle";
 }
 
-function getGuestDjVideo(song: Song, mainVideo: string, progress: number, isPlaying: boolean) {
+function getGuestDjScene(song: Song, mainVideo: string, progress: number, isPlaying: boolean): GuestDjScene | undefined {
   if (!isPlaying || song.mood === "ballad" || song.bpm < 112) return undefined;
   if (mainVideo === djVisual.guestSlot) return undefined;
 
-  const revealProgress = song.mood === "rock" || song.bpm >= 132 ? 10 : song.bpm >= 122 ? 18 : 28;
-  return progress >= revealProgress ? djVisual.guestSlot : undefined;
+  const isPeakTrack = song.mood === "rock" || song.bpm >= 132;
+  const guestWindows = isPeakTrack
+    ? [
+        { end: 34, exitStart: 30, label: "2ND DJ LIVE", start: 10, status: "live" },
+        { end: 68, exitStart: 64, label: "DJ BATTLE", start: 48, status: "live" },
+        { end: 92, exitStart: 88, label: "ENCORE", start: 78, status: "encore" },
+      ]
+    : song.bpm >= 122
+      ? [
+          { end: 38, exitStart: 34, label: "2ND DJ LIVE", start: 18, status: "live" },
+          { end: 78, exitStart: 74, label: "BACK TO STAGE", start: 60, status: "encore" },
+        ]
+      : [
+          { end: 48, exitStart: 44, label: "2ND DJ LIVE", start: 28, status: "live" },
+          { end: 86, exitStart: 82, label: "FINAL CALL", start: 72, status: "encore" },
+        ];
+  const activeWindow = guestWindows.find((window) => progress >= window.start && progress < window.end);
+
+  if (!activeWindow) return undefined;
+
+  const status =
+    progress >= activeWindow.exitStart
+      ? "exiting"
+      : progress - activeWindow.start < 3
+        ? "entering"
+        : (activeWindow.status as GuestDjStatus);
+
+  return {
+    label: status === "exiting" ? "EXITING" : activeWindow.label,
+    status,
+    video: djVisual.guestSlot,
+  };
 }
 
 function resolveDjVideo(video: string, availableVideos: Record<string, boolean>, variantSeed: number) {
@@ -780,9 +816,9 @@ export default function Home() {
   const djState = getDjState(djSong, progress, isPlaying);
   const djEnergy = djState.label;
   const djVideo = resolveDjVideo(djState.video, availableDjVideos, activeIndex);
-  const guestDjVideoSource = getGuestDjVideo(djSong, djVideo, progress, isPlaying);
-  const guestDjVideo = guestDjVideoSource
-    ? resolveOptionalDjVideo(guestDjVideoSource, availableDjVideos, activeIndex + 1)
+  const guestDjScene = getGuestDjScene(djSong, djVideo, progress, isPlaying);
+  const guestDjVideo = guestDjScene
+    ? resolveOptionalDjVideo(guestDjScene.video, availableDjVideos, activeIndex + 1)
     : undefined;
   const energyClass = getEnergyClass(djSong, progress);
   const vocalistCue = getVocalistCue(djSong, progress);
@@ -2065,8 +2101,13 @@ export default function Home() {
               />
             </div>
             {guestDjVideo ? (
-              <div className={`guest-dj ${isGuestVideoReady ? "is-ready" : ""}`} aria-label="Guest DJ">
-                <span>2ND DJ LIVE</span>
+              <div
+                className={`guest-dj status-${guestDjScene?.status ?? "live"} ${
+                  isGuestVideoReady ? "is-ready" : ""
+                }`}
+                aria-label="Guest DJ"
+              >
+                <span>{guestDjScene?.label ?? "2ND DJ LIVE"}</span>
                 <video
                   autoPlay
                   loop

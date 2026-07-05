@@ -1075,6 +1075,24 @@ h1 {
   transform: translate3d(0, 0, 0) scale(1);
 }
 
+.guest-dj.is-ready.status-entering {
+  opacity: 0.9;
+  transform: translate3d(-4px, 0, 0) scale(0.98);
+}
+
+.guest-dj.is-ready.status-encore {
+  border-color: color-mix(in srgb, var(--beam-three) 62%, white 10%);
+  box-shadow:
+    0 18px 38px rgba(0, 0, 0, 0.38),
+    0 0 34px color-mix(in srgb, var(--beam-three) 32%, transparent);
+}
+
+.guest-dj.is-ready.status-exiting {
+  opacity: 0.28;
+  transform: translate3d(-32px, 16px, 0) scale(0.88);
+  filter: saturate(0.72) brightness(0.82);
+}
+
 .guest-dj span {
   position: absolute;
   left: 8px;
@@ -1089,6 +1107,10 @@ h1 {
   letter-spacing: 0;
   text-transform: uppercase;
   box-shadow: 0 0 14px color-mix(in srgb, var(--accent) 26%, transparent);
+}
+
+.guest-dj.status-exiting span {
+  color: rgba(248, 248, 251, 0.72);
 }
 
 .guest-dj video {
