@@ -160,7 +160,7 @@ const djVisual = {
   peakAlt: "/assets/dj-peak-01.mp4",
   rockSlot: "/assets/dj-rock-live.mp4",
   rockAlt: "/assets/dj-rock-live-01.mp4",
-  guestSlot: "/assets/dj-guest-unique.mp4",
+  guestSlot: "/assets/dj-guest-01.mp4",
   guestAlt: "/assets/dj-guest-unique-01.mp4",
 };
 
