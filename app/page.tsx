@@ -747,6 +747,13 @@ export default function Home() {
   const usableAnalysis =
     activeAnalysis && activeAnalysis.confidence >= analysisConfidenceThreshold ? activeAnalysis : undefined;
   const analysisSource = usableAnalysis ? "AUTO" : activeAnalysis ? "FALLBACK" : "PENDING";
+  const currentScanStatus = getScanStatus({
+    analysis: activeAnalysis,
+    analysisStatus,
+    bpmOverride,
+    isActive: true,
+    moodOverride,
+  });
   const djSong = getEffectiveSong(song, activeAnalysis, moodOverride, bpmOverride);
   const djState = getDjState(djSong, progress, isPlaying);
   const djEnergy = djState.label;
@@ -770,6 +777,17 @@ export default function Home() {
             ? ["raise energy", "tighten groove", "prepare drop"]
             : ["lock tempo", "scan energy", "build groove"];
   const aiBrainLevel = Math.min(100, Math.round((djSong.bpm / 150) * 54 + progress * 0.38));
+  const mappingSourceLabel =
+    moodOverride !== "auto" || typeof bpmOverride === "number"
+      ? "手動修正"
+      : usableAnalysis
+        ? "自動分檢"
+        : activeAnalysis
+          ? "保守預估"
+          : "等待掃描";
+  const mappingConfidenceLabel = activeAnalysis
+    ? `${Math.round(activeAnalysis.confidence * 100)}%`
+    : "待掃描";
   const videoRate = getVideoRate(djSong, progress, isPlaying);
   const recommendedIndex = useMemo(
     () => getRecommendedTrackIndex(activeIndex, playlist, djSong, analysisById, moodOverrides, bpmOverrides),
@@ -1395,6 +1413,29 @@ export default function Home() {
     });
   }
 
+  function resetCurrentAutoMapping() {
+    if (!hasSongs) return;
+
+    const autoMood = usableAnalysis?.mood ?? guessSongMoodFromName(song.title);
+    const autoBpm = usableAnalysis?.bpm ?? guessSongBpmFromMood(autoMood);
+
+    setMoodOverrides((current) => {
+      const { [song.id]: _removed, ...next } = current;
+      return next;
+    });
+    setBpmOverrides((current) => {
+      const { [song.id]: _removed, ...next } = current;
+      return next;
+    });
+    patchSongInMemory(song.id, {
+      accent: getMoodAccent(autoMood),
+      bpm: autoBpm,
+      bpmOverride: undefined,
+      mood: autoMood,
+      moodOverride: "auto",
+    });
+  }
+
   function movePlaylistItem(index: number, direction: number) {
     const targetIndex = index + direction;
     if (targetIndex < 0 || targetIndex >= playlist.length) return;
@@ -1999,35 +2040,57 @@ export default function Home() {
               </span>
             </div>
 
-            <div className="bpm-editor" aria-label="快速調整 BPM">
-              <span>BPM 微調</span>
-              <div>
-                <button disabled={!hasSongs} onClick={() => setCurrentBpmOverride(djSong.bpm - 1)} type="button">
-                  -1
-                </button>
-                <strong>{djSong.bpm}</strong>
-                <button disabled={!hasSongs} onClick={() => setCurrentBpmOverride(djSong.bpm + 1)} type="button">
-                  +1
-                </button>
+            <div className="mapping-panel" aria-label="DJ 歌曲判斷">
+              <div className="mapping-panel-head">
+                <span>DJ 判斷</span>
+                <strong className={`mapping-status status-${currentScanStatus.tone}`}>{currentScanStatus.label}</strong>
               </div>
-            </div>
+              <div className="mapping-readout">
+                <span>
+                  <small>來源</small>
+                  <strong>{mappingSourceLabel}</strong>
+                </span>
+                <span>
+                  <small>信心</small>
+                  <strong>{mappingConfidenceLabel}</strong>
+                </span>
+              </div>
 
-            <div className="style-corrector" aria-label="快速修正歌曲風格">
-              <span>風格修正</span>
-              <div className="style-buttons">
-                {moodOverrideOptions.map((option) => (
-                  <button
-                    aria-pressed={moodOverride === option.value}
-                    className={moodOverride === option.value ? "active" : ""}
-                    disabled={!hasSongs}
-                    key={option.value}
-                    onClick={() => setCurrentMoodOverride(option.value)}
-                    type="button"
-                  >
-                    {option.label}
+              <div className="bpm-editor" aria-label="快速調整 BPM">
+                <span>BPM 微調</span>
+                <div>
+                  <button disabled={!hasSongs} onClick={() => setCurrentBpmOverride(djSong.bpm - 1)} type="button">
+                    -1
                   </button>
-                ))}
+                  <strong>{djSong.bpm}</strong>
+                  <button disabled={!hasSongs} onClick={() => setCurrentBpmOverride(djSong.bpm + 1)} type="button">
+                    +1
+                  </button>
+                </div>
               </div>
+
+              <div className="style-corrector" aria-label="快速修正歌曲風格">
+                <span>風格修正</span>
+                <div className="style-buttons">
+                  {moodOverrideOptions.map((option) => (
+                    <button
+                      aria-pressed={moodOverride === option.value}
+                      className={moodOverride === option.value ? "active" : ""}
+                      disabled={!hasSongs}
+                      key={option.value}
+                      onClick={() => setCurrentMoodOverride(option.value)}
+                      type="button"
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <button className="auto-map-button" disabled={!hasSongs} onClick={resetCurrentAutoMapping} type="button">
+                <RotateCcw size={15} />
+                回到 AUTO
+              </button>
             </div>
 
             <div className="now-actions">
@@ -2139,21 +2202,7 @@ export default function Home() {
                     )}% / energy ${activeAnalysis.energy.toFixed(3)}`
                   : "waiting for local audio scan"}
               </span>
-              <select
-                aria-label="覆蓋歌曲風格"
-                onChange={(event) =>
-                  setMoodOverrides((current) => ({
-                    ...current,
-                    [song.id]: event.target.value as Song["mood"] | "auto",
-                  }))
-                }
-                value={moodOverride}
-              >
-                <option value="auto">AUTO</option>
-                <option value="tech">科技電音</option>
-                <option value="rock">搖滾</option>
-                <option value="ballad">抒情</option>
-              </select>
+              <span>{mappingSourceLabel}</span>
             </div>
 
             <div className={`mode-timeline mode-count-${modeTimeline.length}`} aria-label="DJ 模式時間軸">
