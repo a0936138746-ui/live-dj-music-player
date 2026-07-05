@@ -802,6 +802,17 @@ export default function Home() {
         bpmOverrides[recommendedSong.id],
       )
     : undefined;
+  const queueNextSong = playlist.length > 1 ? playlist[(activeIndex + 1) % playlist.length] : undefined;
+  const queueNextDjSong = queueNextSong
+    ? getEffectiveSong(
+        queueNextSong,
+        analysisById[queueNextSong.id],
+        moodOverrides[queueNextSong.id] ?? "auto",
+        bpmOverrides[queueNextSong.id],
+      )
+    : undefined;
+  const elapsedTime = (trackDuration * progress) / 100;
+  const remainingTime = Math.max(0, trackDuration - elapsedTime);
   const playlistRows = useMemo(
     () =>
       playlist.map((item, index) => ({
@@ -2162,23 +2173,47 @@ export default function Home() {
             />
           ) : null}
 
-          <div className="track-meta">
-            <strong className="track-title-marquee">
-              <span>{song.title}</span>
-            </strong>
-            <span>{song.artist}</span>
+          <div className="control-topline">
+            <div className="track-meta">
+              <strong className="track-title-marquee">
+                <span>{song.title}</span>
+              </strong>
+              <span>{song.artist}</span>
+            </div>
+            <div className="control-badges" aria-label="播放狀態">
+              <span className={isPlaying ? "is-live" : ""}>{isPlaying ? "ON AIR" : "STANDBY"}</span>
+              <span>{audioStatus}</span>
+            </div>
           </div>
 
-          <div className="now-status">
-            <span>{isPlaying ? "ON AIR" : "STANDBY"}</span>
-            <p>
-              {getMoodLabel(djSong.mood)} / {getBpmBand(djSong.bpm)} / {song.title}
-            </p>
-          </div>
+          <div className="control-dashboard">
+            <div className="now-status">
+              <span>{getMoodLabel(djSong.mood)}</span>
+              <p>
+                {djSong.bpm} BPM / {getBpmBand(djSong.bpm)} / 剩餘 {formatTime(remainingTime)}
+              </p>
+            </div>
 
-          <div className="dj-cue" aria-label="DJ 互動提示">
-            <span>{djState.cue}</span>
-            <small>{energyLabel}</small>
+            <div className="dj-cue" aria-label="DJ 互動提示">
+              <span>{djState.cue}</span>
+              <small>{energyLabel}</small>
+            </div>
+
+            {queueNextSong && queueNextDjSong ? (
+              <button className="queue-next-card" onClick={() => moveSong(1)} type="button">
+                <span>下一首</span>
+                <strong>{queueNextSong.title}</strong>
+                <small>
+                  {getMoodLabel(queueNextDjSong.mood)} / {queueNextDjSong.bpm} BPM
+                </small>
+              </button>
+            ) : (
+              <div className="queue-next-card is-empty">
+                <span>下一首</span>
+                <strong>尚未排入</strong>
+                <small>加入更多歌曲後顯示</small>
+              </div>
+            )}
           </div>
 
           <details className="advanced-panel">
@@ -2222,65 +2257,69 @@ export default function Home() {
             ))}
           </div>
 
-          <div className="progress-row">
-            <span>{formatTime((trackDuration * progress) / 100)}</span>
-            <input
-              aria-label="歌曲進度"
-              max="100"
-              min="0"
-              onChange={(event) => seekTrack(Number(event.target.value))}
-              onInput={(event) => seekTrack(Number(event.currentTarget.value))}
-              type="range"
-              value={progress}
-            />
-            <span>{formatTime(trackDuration)}</span>
-          </div>
+          <div className="transport-console">
+            <div className="transport-main">
+              <div className="progress-row">
+                <span>{formatTime(elapsedTime)}</span>
+                <input
+                  aria-label="歌曲進度"
+                  max="100"
+                  min="0"
+                  onChange={(event) => seekTrack(Number(event.target.value))}
+                  onInput={(event) => seekTrack(Number(event.currentTarget.value))}
+                  type="range"
+                  value={progress}
+                />
+                <span>{formatTime(trackDuration)}</span>
+              </div>
 
-          <div className="controls">
-            <button aria-label="上一首" disabled={!hasSongs} onClick={() => moveSong(-1)} type="button">
-              <SkipBack size={20} />
-            </button>
-            <button
-              aria-label={isPlaying ? "暫停" : "播放"}
-              className="play-button"
-              disabled={!hasSongs}
-              onClick={() => setIsPlaying((current) => !current)}
-              type="button"
-            >
-              {isPlaying ? <Pause size={26} /> : <Play size={26} />}
-            </button>
-            <button aria-label="下一首" disabled={!hasSongs} onClick={() => moveSong(1)} type="button">
-              <SkipForward size={20} />
-            </button>
-            <button
-              aria-label={repeatOne ? "關閉單曲循環" : "單曲循環"}
-              className={repeatOne ? "active" : ""}
-              onClick={() => setRepeatOne((current) => !current)}
-              type="button"
-            >
-              {repeatOne ? <Repeat1 size={20} /> : <Repeat size={20} />}
-            </button>
-          </div>
+              <div className="controls">
+                <button aria-label="上一首" disabled={!hasSongs} onClick={() => moveSong(-1)} type="button">
+                  <SkipBack size={20} />
+                </button>
+                <button
+                  aria-label={isPlaying ? "暫停" : "播放"}
+                  className="play-button"
+                  disabled={!hasSongs}
+                  onClick={() => setIsPlaying((current) => !current)}
+                  type="button"
+                >
+                  {isPlaying ? <Pause size={26} /> : <Play size={26} />}
+                </button>
+                <button aria-label="下一首" disabled={!hasSongs} onClick={() => moveSong(1)} type="button">
+                  <SkipForward size={20} />
+                </button>
+                <button
+                  aria-label={repeatOne ? "關閉單曲循環" : "單曲循環"}
+                  className={repeatOne ? "active" : ""}
+                  onClick={() => setRepeatOne((current) => !current)}
+                  type="button"
+                >
+                  {repeatOne ? <Repeat1 size={20} /> : <Repeat size={20} />}
+                </button>
+              </div>
+            </div>
 
-          <div className="sound-row" aria-label="音量控制">
-            <button
-              aria-label={isMuted ? "取消靜音" : "靜音"}
-              onClick={() => setIsMuted((current) => !current)}
-              type="button"
-            >
-              {isMuted || volume === 0 ? <VolumeX size={18} /> : <Volume2 size={18} />}
-            </button>
-            <input
-              aria-label="音量"
-              max="1"
-              min="0"
-              onChange={(event) => changeVolume(Number(event.target.value))}
-              onInput={(event) => changeVolume(Number(event.currentTarget.value))}
-              step="0.05"
-              type="range"
-              value={isMuted ? 0 : volume}
-            />
-            <span>{Math.round((isMuted ? 0 : volume) * 100)}%</span>
+            <div className="sound-row" aria-label="音量控制">
+              <button
+                aria-label={isMuted ? "取消靜音" : "靜音"}
+                onClick={() => setIsMuted((current) => !current)}
+                type="button"
+              >
+                {isMuted || volume === 0 ? <VolumeX size={18} /> : <Volume2 size={18} />}
+              </button>
+              <input
+                aria-label="音量"
+                max="1"
+                min="0"
+                onChange={(event) => changeVolume(Number(event.target.value))}
+                onInput={(event) => changeVolume(Number(event.currentTarget.value))}
+                step="0.05"
+                type="range"
+                value={isMuted ? 0 : volume}
+              />
+              <span>{Math.round((isMuted ? 0 : volume) * 100)}%</span>
+            </div>
           </div>
         </section>
       </section>

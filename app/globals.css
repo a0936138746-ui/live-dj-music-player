@@ -1976,9 +1976,16 @@ h1 {
 .control-panel {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 18px;
+  gap: 14px;
   margin-top: 18px;
   padding: 20px;
+}
+
+.control-topline {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
 }
 
 .track-meta {
@@ -2009,6 +2016,37 @@ h1 {
   animation: title-drift 9s ease-in-out infinite;
 }
 
+.control-badges {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.control-badges span {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  padding: 7px 9px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 950;
+  white-space: nowrap;
+}
+
+.control-badges span.is-live {
+  border-color: color-mix(in srgb, var(--accent) 64%, white 10%);
+  background: color-mix(in srgb, var(--accent) 18%, rgba(255, 255, 255, 0.06));
+  color: var(--accent);
+}
+
+.control-dashboard {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(190px, 0.85fr);
+  gap: 10px;
+  align-items: stretch;
+}
+
 .now-status {
   display: grid;
   grid-template-columns: auto 1fr;
@@ -2021,12 +2059,14 @@ h1 {
 }
 
 .now-status > span {
+  min-width: 64px;
   border-radius: 8px;
   padding: 6px 8px;
   background: var(--accent);
   color: #050608;
   font-size: 0.72rem;
   font-weight: 900;
+  text-align: center;
 }
 
 .now-status p {
@@ -2138,6 +2178,51 @@ h1 {
   text-transform: uppercase;
 }
 
+.queue-next-card {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  min-height: 58px;
+  border: 1px solid color-mix(in srgb, var(--accent) 24%, rgba(255, 255, 255, 0.12));
+  border-radius: 8px;
+  padding: 9px 11px;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--accent) 11%, transparent), transparent 70%),
+    rgba(0, 0, 0, 0.14);
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+}
+
+.queue-next-card:hover:not(.is-empty) {
+  border-color: color-mix(in srgb, var(--accent) 52%, white 8%);
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--accent) 18%, transparent), transparent 70%),
+    rgba(255, 255, 255, 0.04);
+}
+
+.queue-next-card span,
+.queue-next-card small {
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.queue-next-card strong {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 0.82rem;
+  font-weight: 950;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.queue-next-card.is-empty {
+  cursor: default;
+  opacity: 0.72;
+}
+
 .dj-cue span {
   display: inline-block;
 }
@@ -2224,6 +2309,23 @@ h1 {
   text-shadow: 0 0 18px color-mix(in srgb, var(--accent) 45%, transparent);
 }
 
+.transport-console {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 320px);
+  gap: 16px;
+  align-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 14px;
+  background: rgba(0, 0, 0, 0.16);
+}
+
+.transport-main {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
 .progress-row {
   display: grid;
   grid-template-columns: 48px 1fr 48px;
@@ -2277,9 +2379,8 @@ h1 {
 
 .sound-row {
   display: grid;
-  grid-template-columns: 42px minmax(140px, 260px) 44px;
+  grid-template-columns: 42px minmax(120px, 1fr) 44px;
   align-items: center;
-  justify-content: center;
   gap: 10px;
   color: var(--muted);
   font-size: 0.84rem;
@@ -2768,6 +2869,11 @@ h1 {
     bottom: 112px;
     width: 154px;
   }
+
+  .control-dashboard,
+  .transport-console {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 640px) {
@@ -2779,6 +2885,15 @@ h1 {
   .track-meta {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .control-topline,
+  .mapping-readout {
+    grid-template-columns: 1fr;
+  }
+
+  .control-badges {
+    justify-content: flex-start;
   }
 
   .top-actions {
@@ -2830,5 +2945,23 @@ h1 {
 
   .now-status {
     grid-template-columns: 1fr;
+  }
+
+  .controls {
+    gap: 8px;
+  }
+
+  .controls button {
+    width: 44px;
+    height: 44px;
+  }
+
+  .controls .play-button {
+    width: 58px;
+    height: 58px;
+  }
+
+  .sound-row {
+    grid-template-columns: 42px minmax(0, 1fr) 44px;
   }
 }
