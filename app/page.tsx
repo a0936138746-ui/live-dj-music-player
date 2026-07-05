@@ -548,7 +548,9 @@ function chooseVisualMode({
 function getGuestDjVideo(song: Song, mainVideo: string, progress: number, isPlaying: boolean) {
   if (!isPlaying || song.mood === "ballad" || song.bpm < 112) return undefined;
   if (mainVideo === djVisual.guestSlot) return undefined;
-  return progress >= 45 ? djVisual.guestSlot : undefined;
+
+  const revealProgress = song.mood === "rock" || song.bpm >= 132 ? 10 : song.bpm >= 122 ? 18 : 28;
+  return progress >= revealProgress ? djVisual.guestSlot : undefined;
 }
 
 function resolveDjVideo(video: string, availableVideos: Record<string, boolean>, variantSeed: number) {
@@ -2053,7 +2055,7 @@ export default function Home() {
             </div>
             {guestDjVideo ? (
               <div className={`guest-dj ${isGuestVideoReady ? "is-ready" : ""}`} aria-label="Guest DJ">
-                <span>Guest DJ</span>
+                <span>2ND DJ LIVE</span>
                 <video
                   autoPlay
                   loop
