@@ -63,11 +63,14 @@ type VisualMode =
 
 type SingerDanceProfile = "soft" | "groove" | "hype" | "drop";
 type PlaylistFilter = "all" | Song["mood"];
+type ScanStatusTone = "auto" | "manual" | "fallback" | "pending" | "scanning";
 
 type StoredLocalSong = Omit<Song, "audioSrc"> & {
+  bpmOverride?: number;
   file: Blob;
   fileName: string;
   isShelved?: boolean;
+  moodOverride?: Song["mood"] | "auto";
 };
 
 const visualModeLabels: Record<VisualMode, string> = {
@@ -285,6 +288,32 @@ async function updateStoredLocalSongShelfStatus(songId: string, isShelved: boole
         store.put({
           ...storedSong,
           isShelved,
+        });
+      }
+    };
+    transaction.onerror = () => reject(transaction.error);
+    transaction.oncomplete = () => {
+      db.close();
+      resolve();
+    };
+  });
+}
+
+async function patchStoredLocalSong(songId: string, patch: Partial<Omit<StoredLocalSong, "file" | "id">>) {
+  const db = await openLocalSongDb();
+
+  return new Promise<void>((resolve, reject) => {
+    const transaction = db.transaction(localSongStoreName, "readwrite");
+    const store = transaction.objectStore(localSongStoreName);
+    const request = store.get(songId);
+
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => {
+      const storedSong = request.result as StoredLocalSong | undefined;
+      if (storedSong) {
+        store.put({
+          ...storedSong,
+          ...patch,
         });
       }
     };
@@ -528,27 +557,51 @@ function getEffectiveSong(
   song: Song,
   analysis: AudioAnalysis | undefined,
   moodOverride: Song["mood"] | "auto",
+  bpmOverride?: number,
 ) {
   const usableAnalysis = analysis && analysis.confidence >= analysisConfidenceThreshold ? analysis : undefined;
 
-  if (moodOverride !== "auto") {
-    return {
-      ...song,
-      mood: moodOverride,
-      accent: getMoodAccent(moodOverride),
-    };
-  }
-
-  return usableAnalysis
+  const effectiveSong = usableAnalysis
     ? {
         ...song,
         bpm: usableAnalysis.bpm,
         mood: usableAnalysis.mood,
         accent: getMoodAccent(usableAnalysis.mood),
       }
-    : {
+      : {
         ...song,
       };
+
+  if (moodOverride !== "auto") {
+    effectiveSong.mood = moodOverride;
+    effectiveSong.accent = getMoodAccent(moodOverride);
+  }
+
+  if (typeof bpmOverride === "number") {
+    effectiveSong.bpm = bpmOverride;
+  }
+
+  return effectiveSong;
+}
+
+function getScanStatus({
+  analysis,
+  analysisStatus,
+  bpmOverride,
+  isActive,
+  moodOverride,
+}: {
+  analysis: AudioAnalysis | undefined;
+  analysisStatus: string;
+  bpmOverride: number | undefined;
+  isActive: boolean;
+  moodOverride: Song["mood"] | "auto";
+}): { label: string; tone: ScanStatusTone } {
+  if (moodOverride !== "auto" || typeof bpmOverride === "number") return { label: "手動", tone: "manual" };
+  if (analysis && analysis.confidence >= analysisConfidenceThreshold) return { label: "AUTO", tone: "auto" };
+  if (analysis) return { label: "低信心", tone: "fallback" };
+  if (isActive && analysisStatus === "SCANNING") return { label: "掃描中", tone: "scanning" };
+  return { label: "待掃描", tone: "pending" };
 }
 
 function getRecommendedTrackIndex(
@@ -557,6 +610,7 @@ function getRecommendedTrackIndex(
   currentSong: Song,
   analysisById: Record<string, AudioAnalysis>,
   moodOverrides: Record<string, Song["mood"] | "auto">,
+  bpmOverrides: Record<string, number>,
 ) {
   if (playlist.length <= 1) return -1;
 
@@ -572,6 +626,7 @@ function getRecommendedTrackIndex(
         candidate,
         analysisById[candidate.id],
         moodOverrides[candidate.id] ?? "auto",
+        bpmOverrides[candidate.id],
       );
       const naturalOrderBonus = index === (activeIndex + 1) % playlist.length ? -4 : 0;
       const bpmScore = Math.abs(candidateSong.bpm - currentSong.bpm);
@@ -651,6 +706,9 @@ export default function Home() {
   const [analysisById, setAnalysisById] = useState<Record<string, AudioAnalysis>>({});
   const [analysisStatus, setAnalysisStatus] = useState("SCAN READY");
   const [moodOverrides, setMoodOverrides] = useState<Record<string, Song["mood"] | "auto">>({});
+  const [bpmOverrides, setBpmOverrides] = useState<Record<string, number>>({});
+  const [importNotice, setImportNotice] = useState("");
+  const [isDraggingFiles, setIsDraggingFiles] = useState(false);
   const [repeatOne, setRepeatOne] = useState(false);
   const [audioKick, setAudioKick] = useState(false);
   const [visualMode, setVisualMode] = useState<VisualMode>("idle");
@@ -685,10 +743,11 @@ export default function Home() {
   const songAudioSrc = song.audioSrc ? getMediaUrl(song.audioSrc) : undefined;
   const activeAnalysis = analysisById[song.id];
   const moodOverride = moodOverrides[song.id] ?? "auto";
+  const bpmOverride = bpmOverrides[song.id];
   const usableAnalysis =
     activeAnalysis && activeAnalysis.confidence >= analysisConfidenceThreshold ? activeAnalysis : undefined;
   const analysisSource = usableAnalysis ? "AUTO" : activeAnalysis ? "FALLBACK" : "PENDING";
-  const djSong = getEffectiveSong(song, activeAnalysis, moodOverride);
+  const djSong = getEffectiveSong(song, activeAnalysis, moodOverride, bpmOverride);
   const djState = getDjState(djSong, progress, isPlaying);
   const djEnergy = djState.label;
   const djVideo = resolveDjVideo(djState.video, availableDjVideos, activeIndex);
@@ -713,8 +772,8 @@ export default function Home() {
   const aiBrainLevel = Math.min(100, Math.round((djSong.bpm / 150) * 54 + progress * 0.38));
   const videoRate = getVideoRate(djSong, progress, isPlaying);
   const recommendedIndex = useMemo(
-    () => getRecommendedTrackIndex(activeIndex, playlist, djSong, analysisById, moodOverrides),
-    [activeIndex, analysisById, djSong, moodOverrides, playlist],
+    () => getRecommendedTrackIndex(activeIndex, playlist, djSong, analysisById, moodOverrides, bpmOverrides),
+    [activeIndex, analysisById, bpmOverrides, djSong, moodOverrides, playlist],
   );
   const recommendedSong = recommendedIndex >= 0 ? playlist[recommendedIndex] : undefined;
   const recommendedDjSong = recommendedSong
@@ -722,16 +781,29 @@ export default function Home() {
         recommendedSong,
         analysisById[recommendedSong.id],
         moodOverrides[recommendedSong.id] ?? "auto",
+        bpmOverrides[recommendedSong.id],
       )
     : undefined;
   const playlistRows = useMemo(
     () =>
       playlist.map((item, index) => ({
-        effectiveSong: getEffectiveSong(item, analysisById[item.id], moodOverrides[item.id] ?? "auto"),
+        effectiveSong: getEffectiveSong(
+          item,
+          analysisById[item.id],
+          moodOverrides[item.id] ?? "auto",
+          bpmOverrides[item.id],
+        ),
+        scanStatus: getScanStatus({
+          analysis: analysisById[item.id],
+          analysisStatus,
+          bpmOverride: bpmOverrides[item.id],
+          isActive: index === activeIndex,
+          moodOverride: moodOverrides[item.id] ?? "auto",
+        }),
         index,
         item,
       })),
-    [analysisById, moodOverrides, playlist],
+    [activeIndex, analysisById, analysisStatus, bpmOverrides, moodOverrides, playlist],
   );
   const filteredPlaylistRows = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -929,6 +1001,13 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
+    if (!importNotice) return;
+
+    const timer = window.setTimeout(() => setImportNotice(""), 4200);
+    return () => window.clearTimeout(timer);
+  }, [importNotice]);
+
+  useEffect(() => {
     let isCancelled = false;
     const objectUrls: string[] = [];
 
@@ -936,19 +1015,33 @@ export default function Home() {
       .then((storedSongs) => {
         if (isCancelled || storedSongs.length === 0) return;
 
-        const restoredSongs = storedSongs.map((storedSong) => {
+        const restoredEntries = storedSongs.map((storedSong) => {
           const audioSrc = URL.createObjectURL(storedSong.file);
           objectUrls.push(audioSrc);
-          const { isShelved, ...songData } = storedSong;
+          const { bpmOverride, file: _file, fileName: _fileName, isShelved, moodOverride, ...songData } = storedSong;
 
           return {
-            ...songData,
-            audioSrc,
+            bpmOverride,
             isShelved: Boolean(isShelved),
+            moodOverride,
+            song: {
+              ...songData,
+              audioSrc,
+            },
           };
         });
-        const restoredPlaylist = restoredSongs.filter((item) => !item.isShelved);
-        const restoredShelvedSongs = restoredSongs.filter((item) => item.isShelved);
+        const restoredPlaylist = restoredEntries.filter((item) => !item.isShelved).map((item) => item.song);
+        const restoredShelvedSongs = restoredEntries.filter((item) => item.isShelved).map((item) => item.song);
+        const restoredBpmOverrides = Object.fromEntries(
+          restoredEntries
+            .filter((item) => typeof item.bpmOverride === "number")
+            .map((item) => [item.song.id, item.bpmOverride as number]),
+        );
+        const restoredMoodOverrides = Object.fromEntries(
+          restoredEntries
+            .filter((item) => item.moodOverride && item.moodOverride !== "auto")
+            .map((item) => [item.song.id, item.moodOverride as Song["mood"]]),
+        );
 
         setPlaylist((current) => {
           const currentIds = new Set(current.map((item) => item.id));
@@ -960,6 +1053,14 @@ export default function Home() {
           const missingSongs = restoredShelvedSongs.filter((item) => !currentIds.has(item.id));
           return missingSongs.length > 0 ? [...current, ...missingSongs] : current;
         });
+        setBpmOverrides((current) => ({
+          ...restoredBpmOverrides,
+          ...current,
+        }));
+        setMoodOverrides((current) => ({
+          ...restoredMoodOverrides,
+          ...current,
+        }));
       })
       .catch(() => undefined);
 
@@ -1232,6 +1333,18 @@ export default function Home() {
     setIsMuted(value === 0);
   }
 
+  function patchSongInMemory(
+    songId: string,
+    patch: Partial<Pick<Song, "accent" | "bpm" | "mood">> &
+      Partial<Pick<StoredLocalSong, "bpmOverride" | "moodOverride">>,
+  ) {
+    const { bpmOverride: _bpmOverride, moodOverride: _moodOverride, ...songPatch } = patch;
+
+    setPlaylist((current) => current.map((item) => (item.id === songId ? { ...item, ...songPatch } : item)));
+    setShelvedSongs((current) => current.map((item) => (item.id === songId ? { ...item, ...songPatch } : item)));
+    void patchStoredLocalSong(songId, patch).catch(() => undefined);
+  }
+
   function setCurrentMoodOverride(nextMood: Song["mood"] | "auto") {
     if (!hasSongs) return;
 
@@ -1245,6 +1358,40 @@ export default function Home() {
         ...current,
         [song.id]: nextMood,
       };
+    });
+
+    if (nextMood === "auto") {
+      const autoMood =
+        activeAnalysis && activeAnalysis.confidence >= analysisConfidenceThreshold
+          ? activeAnalysis.mood
+          : guessSongMoodFromName(song.title);
+
+      patchSongInMemory(song.id, {
+        accent: getMoodAccent(autoMood),
+        mood: autoMood,
+        moodOverride: "auto",
+      });
+      return;
+    }
+
+    patchSongInMemory(song.id, {
+      accent: getMoodAccent(nextMood),
+      mood: nextMood,
+      moodOverride: nextMood,
+    });
+  }
+
+  function setCurrentBpmOverride(nextBpm: number) {
+    if (!hasSongs) return;
+
+    const normalizedBpm = Math.max(60, Math.min(180, Math.round(nextBpm)));
+    setBpmOverrides((current) => ({
+      ...current,
+      [song.id]: normalizedBpm,
+    }));
+    patchSongInMemory(song.id, {
+      bpm: normalizedBpm,
+      bpmOverride: normalizedBpm,
     });
   }
 
@@ -1302,6 +1449,9 @@ export default function Home() {
     setIsPlaying(false);
     setAnalysisById({});
     setMoodOverrides({});
+    setBpmOverrides({});
+    setImportNotice("");
+    setIsDraggingFiles(false);
     setAnalysisStatus("SCAN READY");
     void clearStoredLocalSongs();
   }
@@ -1316,6 +1466,10 @@ export default function Home() {
       return next;
     });
     setMoodOverrides((current) => {
+      const { [songToForget.id]: _removed, ...next } = current;
+      return next;
+    });
+    setBpmOverrides((current) => {
       const { [songToForget.id]: _removed, ...next } = current;
       return next;
     });
@@ -1361,10 +1515,45 @@ export default function Home() {
     forgetSong(songToDelete);
   }
 
-  function addLocalSongs(files: File[]) {
-    if (files.length === 0) return;
+  function getAudioFiles(files: File[]) {
+    return files.filter((file) => {
+      return file.type.startsWith("audio/") || /\.(mp3|wav|m4a|ogg|flac|aac)$/i.test(file.name);
+    });
+  }
 
-    const newSongs = files.map((file, index) => {
+  function handleFileDragOver(event: React.DragEvent<HTMLElement>) {
+    if (!Array.from(event.dataTransfer.types).includes("Files")) return;
+
+    event.preventDefault();
+    setIsDraggingFiles(true);
+  }
+
+  function handleFileDragLeave(event: React.DragEvent<HTMLElement>) {
+    if (event.currentTarget.contains(event.relatedTarget as Node | null)) return;
+    setIsDraggingFiles(false);
+  }
+
+  function handleFileDrop(event: React.DragEvent<HTMLElement>) {
+    event.preventDefault();
+    setIsDraggingFiles(false);
+
+    const audioFiles = getAudioFiles(Array.from(event.dataTransfer.files));
+    if (audioFiles.length === 0) {
+      setImportNotice("沒有找到可匯入的音訊檔");
+      return;
+    }
+
+    addLocalSongs(audioFiles);
+  }
+
+  function addLocalSongs(files: File[]) {
+    const audioFiles = getAudioFiles(files);
+    if (audioFiles.length === 0) {
+      setImportNotice("沒有找到可匯入的音訊檔");
+      return;
+    }
+
+    const newSongs = audioFiles.map((file, index) => {
       const audioSrc = URL.createObjectURL(file);
       const cleanTitle = file.name.replace(/\.[^/.]+$/, "").replace(/[-_]+/g, " ");
       const randomSuffix = Math.random().toString(36).slice(2, 8);
@@ -1398,6 +1587,9 @@ export default function Home() {
     setActiveIndex(firstNewIndex);
     setProgress(0);
     setIsPlaying(true);
+    setImportNotice(
+      newSongs.length === 1 ? `已加入：${newSongs[0].title}` : `已加入 ${newSongs.length} 首歌曲`,
+    );
 
     newSongs.forEach((item) => {
       const { audioSrc: _audioSrc, sourceFile, ...storedSong } = item;
@@ -1475,7 +1667,12 @@ export default function Home() {
 
   return (
     <main
-      className={`player-shell mood-${djSong.mood} ${energyClass} ${audioKick && isPlaying ? "audio-kick" : ""}`}
+      className={`player-shell mood-${djSong.mood} ${energyClass} ${audioKick && isPlaying ? "audio-kick" : ""} ${
+        isDraggingFiles ? "is-dragging-files" : ""
+      }`}
+      onDragLeave={handleFileDragLeave}
+      onDragOver={handleFileDragOver}
+      onDrop={handleFileDrop}
       style={
         {
           "--accent": djSong.accent,
@@ -1486,6 +1683,10 @@ export default function Home() {
         } as React.CSSProperties
       }
     >
+      <div className="drop-overlay" aria-hidden="true">
+        <Sparkles size={22} />
+        <span>放開加入歌曲</span>
+      </div>
       <section className="studio">
         <header className="topbar">
           <div>
@@ -1551,12 +1752,18 @@ export default function Home() {
               </div>
             </div>
             {playlist.length === 0 ? (
-              <p className="shelf-empty">目前沒有歌曲，請先點上方「加入歌曲」。</p>
+              <p className="shelf-empty">目前沒有歌曲，請點上方「加入歌曲」或直接拖放音訊檔。</p>
+            ) : null}
+            {importNotice ? (
+              <div className="import-notice">
+                <Sparkles size={14} />
+                <span>{importNotice}</span>
+              </div>
             ) : null}
             {playlist.length > 0 && filteredPlaylistRows.length === 0 ? (
               <p className="shelf-empty">沒有符合目前搜尋或分類的歌曲。</p>
             ) : null}
-            {filteredPlaylistRows.map(({ effectiveSong: cardSong, index, item }) => {
+            {filteredPlaylistRows.map(({ effectiveSong: cardSong, index, item, scanStatus }) => {
               return (
                 <article
                   className={`song-card ${index === activeIndex ? "active" : ""}`}
@@ -1578,6 +1785,7 @@ export default function Home() {
                       <small>{item.artist}</small>
                       <span className="song-card-foot">
                         <span>{cardSong.bpm} BPM</span>
+                        <span className={`scan-badge status-${scanStatus.tone}`}>{scanStatus.label}</span>
                       </span>
                     </span>
                   </span>
@@ -1789,6 +1997,19 @@ export default function Home() {
                 <strong>{getBpmBand(djSong.bpm)}</strong>
                 <small>速度</small>
               </span>
+            </div>
+
+            <div className="bpm-editor" aria-label="快速調整 BPM">
+              <span>BPM 微調</span>
+              <div>
+                <button disabled={!hasSongs} onClick={() => setCurrentBpmOverride(djSong.bpm - 1)} type="button">
+                  -1
+                </button>
+                <strong>{djSong.bpm}</strong>
+                <button disabled={!hasSongs} onClick={() => setCurrentBpmOverride(djSong.bpm + 1)} type="button">
+                  +1
+                </button>
+              </div>
             </div>
 
             <div className="style-corrector" aria-label="快速修正歌曲風格">
