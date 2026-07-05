@@ -27,3 +27,19 @@ Thumbs.db
 # local caches
 .npm-cache/
 tsconfig.tsbuildinfo
+
+# Keep local heavy media out of cloud deployments by default.
+# The app can load these from a CDN via NEXT_PUBLIC_MEDIA_BASE_URL later.
+public/music/*
+!public/music/.gitkeep
+
+public/assets/*.mp4
+!public/assets/dj-soft.mp4
+!public/assets/dj-groove.mp4
+!public/assets/dj-peak.mp4
+!public/assets/dj-rock-live.mp4
+!public/assets/dj-guest.mp4
+
+public/assets/holo-singer-frames/
+public/assets/holo-singer-source.png
+public/assets/ai-dj.png

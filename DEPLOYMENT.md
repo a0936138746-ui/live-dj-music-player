@@ -55,10 +55,18 @@ public/music/
 
 但正式上線後，MP3 / MP4 建議放到 Vercel Blob、Cloudflare R2 或其他 CDN，避免 repo 越來越大。
 
+目前 GitHub 部署包只保留核心 DJ 影片。測試歌曲、多餘備用影片、小歌手圖序列預設不會上傳，這是為了避免 Vercel 靜態檔部署過大。
+
 搬到雲端後，在 Vercel 專案的 Environment Variables 加：
 
 ```text
 NEXT_PUBLIC_MEDIA_BASE_URL=https://your-cdn-domain.com
+```
+
+小歌手圖序列搬到雲端後，再加：
+
+```text
+NEXT_PUBLIC_ENABLE_SINGER_FRAMES=true
 ```
 
 播放器會自動把：

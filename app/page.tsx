@@ -102,6 +102,7 @@ const singerDanceCycleMultipliers: Record<SingerDanceProfile, number> = {
 };
 
 const mediaBaseUrl = (process.env.NEXT_PUBLIC_MEDIA_BASE_URL ?? "").replace(/\/$/, "");
+const singerFrameAssetsEnabled = process.env.NEXT_PUBLIC_ENABLE_SINGER_FRAMES === "true";
 
 function getMediaUrl(src: string) {
   if (/^(blob:|data:|https?:\/\/)/i.test(src)) return src;
@@ -856,9 +857,14 @@ export default function Home() {
   const hasAudio = Boolean(songAudioSrc);
   const singerDanceProfile = getSingerDanceProfile(djSong, progress, liveAudioMetrics, visualMode, isPlaying);
   const singerDanceDrive = getSingerDanceDrive(singerDanceProfile, visualEnergy, liveAudioMetrics);
-  const singerFrameCount = singerAnimationConfig[visualMode].frameCount;
-  const singerFrameSrc = getSingerFrameSrc(visualMode, singerFrameIndex % singerFrameCount);
-  const singerFramePreloadSources = useMemo(() => getSingerFrameSources(visualMode), [visualMode]);
+  const singerFrameCount = singerFrameAssetsEnabled ? singerAnimationConfig[visualMode].frameCount : 1;
+  const singerFrameSrc = singerFrameAssetsEnabled
+    ? getSingerFrameSrc(visualMode, singerFrameIndex % singerFrameCount)
+    : getMediaUrl("/assets/holo-singer.png");
+  const singerFramePreloadSources = useMemo(
+    () => (singerFrameAssetsEnabled ? getSingerFrameSources(visualMode) : []),
+    [visualMode],
+  );
   const activeLyricIndex = useMemo(() => {
     return Math.min(
       song.lyric.length - 1,
@@ -1797,8 +1803,8 @@ export default function Home() {
                 <span />
                 <span />
               </div>
-              <div className="holo-character has-frame-sequence" aria-hidden="true">
-                <img alt="" className="holo-singer-frame" src={singerFrameSrc} />
+              <div className={`holo-character ${singerFrameAssetsEnabled ? "has-frame-sequence" : ""}`} aria-hidden="true">
+                {singerFrameAssetsEnabled ? <img alt="" className="holo-singer-frame" src={singerFrameSrc} /> : null}
                 <img alt="" className="holo-singer-image" src={getMediaUrl("/assets/holo-singer.png")} />
                 <img alt="" className="holo-singer-layer holo-layer-head" src={getMediaUrl("/assets/holo-singer.png")} />
                 <img alt="" className="holo-singer-layer holo-layer-mic" src={getMediaUrl("/assets/holo-singer.png")} />
