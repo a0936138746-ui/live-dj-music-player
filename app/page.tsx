@@ -2254,6 +2254,15 @@ export default function Home() {
               <strong>{mainDjName}</strong>
               <small>{directorModeLabel}</small>
             </div>
+            {isPlaying ? (
+              <div
+                className={`stage-switch-flash performer-${directorScene.mainPerformer}`}
+                key={`${directorScene.mainPerformer}-${djVideo}`}
+                aria-hidden="true"
+              >
+                <span>{mainDjName} LIVE TAKE</span>
+              </div>
+            ) : null}
             <div className={`dj-motion performer-${directorScene.mainPerformer}`}>
               <video
                 aria-label={isPlaying ? "AI DJ 播放動作影片" : "AI DJ 待機影片"}
