@@ -1509,6 +1509,14 @@ export default function Home() {
   }, [djVideo, videoRate]);
 
   useEffect(() => {
+    const activeCard = document.querySelector<HTMLElement>("[data-active-song='true']");
+    activeCard?.scrollIntoView({
+      behavior: "smooth",
+      block: "nearest",
+    });
+  }, [activeIndex, playlistFilter, searchQuery]);
+
+  useEffect(() => {
     const video = document.querySelector<HTMLVideoElement>(".guest-dj video");
     if (!video) return;
 
@@ -2170,6 +2178,7 @@ export default function Home() {
               return (
                 <article
                   className={`song-card ${index === activeIndex ? "active" : ""}`}
+                  data-active-song={index === activeIndex ? "true" : undefined}
                   key={item.id}
                 >
                   <button className="song-card-main" onClick={() => selectSong(index)} type="button">
