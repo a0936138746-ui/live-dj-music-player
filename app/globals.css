@@ -446,6 +446,16 @@ h1 {
   gap: 7px;
 }
 
+.song-card-info > strong {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--text);
+  font-size: 0.98rem;
+  line-height: 1.18;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
 .song-cover,
 .now-cover {
   --cover-accent: var(--accent);
@@ -559,6 +569,19 @@ h1 {
   color: var(--accent);
 }
 
+.song-card.active .song-status::before {
+  animation: status-pulse 900ms ease-in-out infinite;
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  margin-right: 6px;
+  background: currentColor;
+  box-shadow: 0 0 12px color-mix(in srgb, var(--accent) 68%, transparent);
+  content: "";
+  vertical-align: 1px;
+}
+
 .song-card-foot .scan-badge {
   border-color: rgba(255, 255, 255, 0.09);
 }
@@ -593,6 +616,13 @@ h1 {
   display: flex;
   align-items: center;
   gap: 6px;
+  opacity: 0.58;
+  transition: opacity 160ms ease, transform 160ms ease;
+}
+
+.song-card:hover .song-card-actions,
+.song-card.active .song-card-actions {
+  opacity: 1;
 }
 
 .song-card-actions button {
@@ -3079,6 +3109,19 @@ h1 {
   }
 }
 
+@keyframes status-pulse {
+  0%,
+  100% {
+    opacity: 0.56;
+    transform: scale(0.82);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1.08);
+  }
+}
+
 @keyframes led-stage-bounce {
   from {
     opacity: calc(0.28 + var(--stage-energy) * 0.42);
@@ -3546,6 +3589,10 @@ h1 {
 
   .song-list {
     grid-template-columns: 1fr;
+  }
+
+  .song-card-actions {
+    opacity: 1;
   }
 
   .dj-stage {
