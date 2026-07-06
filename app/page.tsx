@@ -175,7 +175,6 @@ const djVisual = {
   rockSlot: "/assets/dj-rock-live.mp4",
   rockAlt: "/assets/dj-rock-live-01.mp4",
   guestSlot: "/assets/dj-guest-01.mp4",
-  guestAlt: "/assets/dj-guest-unique-01.mp4",
 };
 
 const djVideoPools = {
@@ -183,7 +182,7 @@ const djVideoPools = {
   [djVisual.grooveSlot]: djVariantAssetsEnabled ? [djVisual.grooveSlot, djVisual.grooveAlt] : [djVisual.grooveSlot],
   [djVisual.peakSlot]: djVariantAssetsEnabled ? [djVisual.peakSlot, djVisual.peakAlt] : [djVisual.peakSlot],
   [djVisual.rockSlot]: djVariantAssetsEnabled ? [djVisual.rockSlot, djVisual.rockAlt] : [djVisual.rockSlot],
-  [djVisual.guestSlot]: djVariantAssetsEnabled ? [djVisual.guestSlot, djVisual.guestAlt] : [djVisual.guestSlot],
+  [djVisual.guestSlot]: [djVisual.guestSlot],
 };
 const redDjVideoSources = [
   djVisual.softAlt,
@@ -191,8 +190,11 @@ const redDjVideoSources = [
   djVisual.peakAlt,
   djVisual.rockAlt,
   djVisual.guestSlot,
-  djVisual.guestAlt,
 ];
+const djPerformerNames: Record<DjPerformer, string> = {
+  black: "BLACK DJ",
+  red: "RED DJ",
+};
 
 const ageOptions = ["全年齡", "13+", "16+", "18+"];
 const playlistFilterOptions: Array<{ value: PlaylistFilter; label: string }> = [
@@ -383,13 +385,16 @@ async function analyzeAudioFile(src: string): Promise<AudioAnalysis> {
 
   const channel = decoded.getChannelData(0);
   const sampleRate = decoded.sampleRate;
-  const blockSize = Math.max(1024, Math.floor(sampleRate * 0.08));
+  const analysisStart = decoded.duration > 55 ? Math.floor(sampleRate * 8) : 0;
+  const analysisEnd = Math.min(channel.length, analysisStart + Math.floor(sampleRate * 160));
+  const blockSize = Math.max(1024, Math.floor(sampleRate * 0.046));
   const levels: number[] = [];
   let energyTotal = 0;
+  let maxLevel = 0;
 
-  for (let offset = 0; offset < channel.length; offset += blockSize) {
+  for (let offset = analysisStart; offset < analysisEnd; offset += blockSize) {
     let sum = 0;
-    const end = Math.min(offset + blockSize, channel.length);
+    const end = Math.min(offset + blockSize, analysisEnd);
 
     for (let i = offset; i < end; i += 1) {
       sum += channel[i] * channel[i];
@@ -398,36 +403,67 @@ async function analyzeAudioFile(src: string): Promise<AudioAnalysis> {
     const rms = Math.sqrt(sum / Math.max(1, end - offset));
     levels.push(rms);
     energyTotal += rms;
+    maxLevel = Math.max(maxLevel, rms);
   }
 
   const average = energyTotal / Math.max(1, levels.length);
-  const threshold = average * 1.35;
-  const peaks: number[] = [];
+  const normalizedLevels = levels.map((level) => level / Math.max(0.0001, maxLevel));
+  const novelty = normalizedLevels.map((level, index) => {
+    if (index === 0) return 0;
+    return Math.max(0, level - normalizedLevels[index - 1]);
+  });
+  const onsetCurve = novelty.map((value, index) => {
+    const previous = novelty[index - 1] ?? value;
+    const next = novelty[index + 1] ?? value;
+    return (previous + value * 1.8 + next) / 3.8;
+  });
+  const blockSeconds = blockSize / sampleRate;
+  const sampleOnset = (position: number) => {
+    const low = Math.floor(position);
+    const high = Math.min(onsetCurve.length - 1, low + 1);
+    const mix = position - low;
 
-  for (let i = 1; i < levels.length - 1; i += 1) {
-    if (levels[i] > threshold && levels[i] > levels[i - 1] && levels[i] >= levels[i + 1]) {
-      peaks.push((i * blockSize) / sampleRate);
+    return (onsetCurve[low] ?? 0) * (1 - mix) + (onsetCurve[high] ?? 0) * mix;
+  };
+  const tempoScores: Array<{ bpm: number; score: number }> = [];
+
+  for (let candidateBpm = 72; candidateBpm <= 176; candidateBpm += 1) {
+    const beatBlocks = (60 / candidateBpm) / blockSeconds;
+    let score = 0;
+    let hits = 0;
+
+    for (let i = 0; i < onsetCurve.length - beatBlocks * 4; i += 1) {
+      const current = onsetCurve[i];
+      if (current < 0.012) continue;
+
+      score +=
+        current *
+        (sampleOnset(i + beatBlocks) + sampleOnset(i + beatBlocks * 2) * 0.64 + sampleOnset(i + beatBlocks * 4) * 0.32);
+      hits += 1;
     }
+
+    tempoScores.push({
+      bpm: candidateBpm,
+      score: hits > 0 ? score / Math.sqrt(hits) : 0,
+    });
   }
 
-  const candidates = new Map<number, number>();
-
-  for (let i = 1; i < peaks.length; i += 1) {
-    const interval = peaks[i] - peaks[i - 1];
-    if (interval <= 0) continue;
-
-    let bpm = 60 / interval;
-    while (bpm < 70) bpm *= 2;
-    while (bpm > 180) bpm /= 2;
-
-    const rounded = Math.round(bpm);
-    candidates.set(rounded, (candidates.get(rounded) ?? 0) + 1);
-  }
-
-  const best = [...candidates.entries()].sort((a, b) => b[1] - a[1])[0];
-  const bpm = best ? best[0] : Math.round(120 + average * 120);
-  const confidence = best ? Math.min(1, best[1] / Math.max(1, peaks.length)) : 0.25;
-  const mood: Song["mood"] = bpm < 105 ? "ballad" : average > 0.14 || bpm >= 134 ? "rock" : "tech";
+  const [best, runnerUp] = tempoScores.sort((a, b) => b.score - a.score);
+  const fallbackBpm = average < 0.055 ? 92 : average > 0.13 ? 136 : 122;
+  const bpm = best && best.score > 0 ? best.bpm : fallbackBpm;
+  const scoreGap = best && runnerUp && best.score > 0 ? (best.score - runnerUp.score) / best.score : 0.32;
+  const confidence = best && best.score > 0 ? Math.min(0.92, Math.max(0.24, 0.3 + scoreGap * 0.52 + best.score * 6)) : 0.2;
+  const sortedLevels = [...normalizedLevels].sort((a, b) => b - a);
+  const peakSampleSize = Math.max(4, Math.floor(sortedLevels.length * 0.08));
+  const peakAverage =
+    sortedLevels.slice(0, peakSampleSize).reduce((sum, value) => sum + value, 0) / Math.max(1, peakSampleSize);
+  const dynamicLift = peakAverage / Math.max(0.08, average / Math.max(0.0001, maxLevel));
+  const mood: Song["mood"] =
+    bpm < 104 || (bpm < 112 && average < 0.075)
+      ? "ballad"
+      : bpm >= 132 || dynamicLift > 2.6 || average > 0.14
+        ? "rock"
+        : "tech";
 
   return {
     bpm,
@@ -875,6 +911,7 @@ export default function Home() {
     resolveOptionalDjVideo(djVisual.guestSlot, availableDjVideos, activeIndex + 1);
   const directorScene = getDjDirectorScene(djSong, progress, isPlaying, Boolean(redDjVideo));
   const djVideo = directorScene.mainPerformer === "red" && redDjVideo ? redDjVideo : blackDjVideo;
+  const mainDjName = djPerformerNames[directorScene.mainPerformer];
   const liveSupportDjScene =
     directorScene.support && (directorScene.support.performer !== "red" || redDjVideo)
       ? {
@@ -2184,6 +2221,10 @@ export default function Home() {
                 ))}
               </div>
             </div>
+            <div className={`stage-director performer-${directorScene.mainPerformer}`} aria-live="polite">
+              <span>MAIN DECK</span>
+              <strong>{mainDjName}</strong>
+            </div>
             <div className={`dj-motion performer-${directorScene.mainPerformer}`}>
               <video
                 aria-label={isPlaying ? "AI DJ 播放動作影片" : "AI DJ 待機影片"}
@@ -2208,6 +2249,7 @@ export default function Home() {
                 <span>{renderedGuestDjScene.label}</span>
                 <video
                   autoPlay
+                  key={supportDjVideo}
                   loop
                   muted
                   onLoadedData={() => setIsGuestVideoReady(true)}
@@ -2300,6 +2342,10 @@ export default function Home() {
               <span>
                 <strong>{getBpmBand(djSong.bpm)}</strong>
                 <small>速度</small>
+              </span>
+              <span className={`now-dj-stat performer-${directorScene.mainPerformer}`}>
+                <strong>{mainDjName.replace(" DJ", "")}</strong>
+                <small>MAIN DJ</small>
               </span>
             </div>
 
