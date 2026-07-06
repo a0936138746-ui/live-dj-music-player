@@ -26,6 +26,7 @@ Thumbs.db
 
 # local caches
 .npm-cache/
+.local-media-cache/
 tsconfig.tsbuildinfo
 
 # Keep local heavy media out of cloud deployments by default.
