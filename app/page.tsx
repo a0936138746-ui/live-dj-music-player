@@ -924,6 +924,16 @@ export default function Home() {
         }
       : undefined;
   const supportDjVideo = renderedGuestDjScene?.video;
+  const supportDjName = renderedGuestDjScene ? djPerformerNames[renderedGuestDjScene.performer] : "STANDBY";
+  const directorModeLabel = !isPlaying
+    ? "待機"
+    : renderedGuestDjScene
+      ? directorScene.mainPerformer === "red"
+        ? "紅髮主位"
+        : renderedGuestDjScene.status === "encore"
+          ? "雙 DJ 收尾"
+          : "雙 DJ 同框"
+      : "單人主控";
   const energyClass = getEnergyClass(djSong, progress);
   const vocalistCue = getVocalistCue(djSong, progress);
   const energyLabel =
@@ -2228,6 +2238,7 @@ export default function Home() {
             <div className={`stage-director performer-${directorScene.mainPerformer}`} aria-live="polite">
               <span>MAIN DECK</span>
               <strong>{mainDjName}</strong>
+              <small>{directorModeLabel}</small>
             </div>
             <div className={`dj-motion performer-${directorScene.mainPerformer}`}>
               <video
@@ -2351,6 +2362,18 @@ export default function Home() {
                 <strong>{mainDjName.replace(" DJ", "")}</strong>
                 <small>MAIN DJ</small>
               </span>
+            </div>
+
+            <div className={`dj-lineup-panel performer-${directorScene.mainPerformer}`}>
+              <div>
+                <small>主位</small>
+                <strong>{mainDjName}</strong>
+              </div>
+              <div>
+                <small>支援</small>
+                <strong>{supportDjName}</strong>
+              </div>
+              <span>{directorModeLabel}</span>
             </div>
 
             <div className="mapping-panel" aria-label="DJ 歌曲判斷">

@@ -758,6 +758,13 @@ h1 {
   letter-spacing: 0;
 }
 
+.stage-director small {
+  color: var(--muted);
+  font-size: 0.64rem;
+  font-weight: 850;
+  letter-spacing: 0;
+}
+
 .stage-director.performer-red {
   border-color: rgba(255, 79, 139, 0.58);
   box-shadow:
@@ -1882,6 +1889,63 @@ h1 {
 }
 
 .now-dj-stat.performer-red strong {
+  color: #ff6fa3;
+}
+
+.dj-lineup-panel {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  border: 1px solid color-mix(in srgb, var(--accent) 26%, rgba(255, 255, 255, 0.12));
+  border-radius: 8px;
+  margin: 0 0 12px;
+  padding: 10px;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--accent) 10%, transparent), transparent 62%),
+    rgba(255, 255, 255, 0.045);
+}
+
+.dj-lineup-panel div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.dj-lineup-panel small {
+  color: var(--muted);
+  font-size: 0.64rem;
+  font-weight: 900;
+}
+
+.dj-lineup-panel strong {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 0.82rem;
+  font-weight: 950;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dj-lineup-panel > span {
+  grid-column: 1 / -1;
+  border: 1px solid color-mix(in srgb, var(--accent) 34%, transparent);
+  border-radius: 8px;
+  padding: 6px 8px;
+  color: var(--accent);
+  font-size: 0.72rem;
+  font-weight: 950;
+  text-align: center;
+}
+
+.dj-lineup-panel.performer-red {
+  border-color: rgba(255, 79, 139, 0.34);
+  background:
+    linear-gradient(135deg, rgba(255, 79, 139, 0.12), transparent 62%),
+    rgba(255, 255, 255, 0.045);
+}
+
+.dj-lineup-panel.performer-red > span {
+  border-color: rgba(255, 79, 139, 0.34);
   color: #ff6fa3;
 }
 
