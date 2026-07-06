@@ -249,6 +249,7 @@ type PlayerPreferences = {
   age?: string;
   isMuted?: boolean;
   playlistFilter?: PlaylistFilter;
+  repeatOne?: boolean;
   volume?: number;
 };
 
@@ -1252,6 +1253,7 @@ export default function Home() {
       const preferences = JSON.parse(saved) as PlayerPreferences;
       if (typeof preferences.volume === "number") setVolume(Math.min(1, Math.max(0, preferences.volume)));
       if (typeof preferences.isMuted === "boolean") setIsMuted(preferences.isMuted);
+      if (typeof preferences.repeatOne === "boolean") setRepeatOne(preferences.repeatOne);
       if (preferences.age && ageOptions.includes(preferences.age)) setAge(preferences.age);
       if (
         preferences.playlistFilter &&
@@ -1273,11 +1275,12 @@ export default function Home() {
       age,
       isMuted,
       playlistFilter,
+      repeatOne,
       volume,
     };
 
     window.localStorage.setItem(playerPreferenceStorageKey, JSON.stringify(preferences));
-  }, [age, isMuted, playlistFilter, volume]);
+  }, [age, isMuted, playlistFilter, repeatOne, volume]);
 
   useEffect(() => {
     let isCancelled = false;
