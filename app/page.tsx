@@ -985,6 +985,7 @@ export default function Home() {
     : undefined;
   const elapsedTime = (trackDuration * progress) / 100;
   const remainingTime = Math.max(0, trackDuration - elapsedTime);
+  const progressLabel = `${Math.round(progress)}%`;
   const playlistRows = useMemo(
     () =>
       playlist.map((item, index) => ({
@@ -2511,6 +2512,27 @@ export default function Home() {
             <div className="control-badges" aria-label="播放狀態">
               <span className={isPlaying ? "is-live" : ""}>{isPlaying ? "ON AIR" : "STANDBY"}</span>
               <span>{audioStatus}</span>
+            </div>
+          </div>
+
+          <div className="control-focus-strip" aria-label="播放摘要">
+            <div>
+              <small>Now</small>
+              <strong>
+                {getMoodLabel(djSong.mood)} · {djSong.bpm} BPM
+              </strong>
+            </div>
+            <div className="focus-progress">
+              <span style={{ "--progress": progressLabel } as React.CSSProperties}>
+                <i />
+              </span>
+              <small>
+                {formatTime(elapsedTime)} / {formatTime(trackDuration)}
+              </small>
+            </div>
+            <div>
+              <small>Main DJ</small>
+              <strong>{mainDjName.replace(" DJ", "")} 主位</strong>
             </div>
           </div>
 

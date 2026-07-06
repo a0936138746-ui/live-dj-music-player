@@ -2540,6 +2540,63 @@ h1 {
   color: var(--accent);
 }
 
+.control-focus-strip {
+  display: grid;
+  grid-template-columns: minmax(130px, 0.8fr) minmax(220px, 1.4fr) minmax(120px, 0.7fr);
+  gap: 10px;
+  align-items: center;
+  border: 1px solid color-mix(in srgb, var(--accent) 24%, rgba(255, 255, 255, 0.12));
+  border-radius: 8px;
+  padding: 10px 12px;
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--accent) 12%, transparent), transparent 62%),
+    rgba(255, 255, 255, 0.045);
+}
+
+.control-focus-strip > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.control-focus-strip small {
+  color: var(--muted);
+  font-size: 0.64rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.control-focus-strip strong {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 0.86rem;
+  font-weight: 950;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.focus-progress {
+  --progress: 0%;
+}
+
+.focus-progress > span {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.focus-progress i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--progress);
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--accent), var(--beam-two));
+  box-shadow: 0 0 18px color-mix(in srgb, var(--accent) 42%, transparent);
+}
+
 .control-dashboard {
   display: grid;
   grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(190px, 0.85fr);
@@ -3465,6 +3522,10 @@ h1 {
 
   .control-topline,
   .mapping-readout {
+    grid-template-columns: 1fr;
+  }
+
+  .control-focus-strip {
     grid-template-columns: 1fr;
   }
 
