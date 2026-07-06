@@ -227,6 +227,7 @@ const djVideoSources = [...new Set([...Object.values(djVideoPools).flat(), ...re
 const analysisConfidenceThreshold = 0.22;
 const localSongDbName = "live-dj-local-songs";
 const localSongStoreName = "songs";
+const playerPreferenceStorageKey = "live-dj-player-preferences";
 
 const defaultSongs: Song[] = [];
 const emptySong: Song = {
@@ -243,6 +244,13 @@ const emptySong: Song = {
 };
 
 const plannedDjVideoSlots = djVideoSources;
+
+type PlayerPreferences = {
+  age?: string;
+  isMuted?: boolean;
+  playlistFilter?: PlaylistFilter;
+  volume?: number;
+};
 
 function openLocalSongDb() {
   return new Promise<IDBDatabase>((resolve, reject) => {
@@ -890,6 +898,7 @@ export default function Home() {
   const guestExitTimerRef = useRef<number | null>(null);
   const lastLiveMetricUpdateRef = useRef(0);
   const lastVisualModeBeatRef = useRef(-1);
+  const didLoadPreferencesRef = useRef(false);
 
   const hasSongs = playlist.length > 0;
   const song = playlist[activeIndex] ?? emptySong;
@@ -1231,6 +1240,44 @@ export default function Home() {
     const timer = window.setTimeout(() => setImportNotice(""), 4200);
     return () => window.clearTimeout(timer);
   }, [importNotice]);
+
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem(playerPreferenceStorageKey);
+      if (!saved) {
+        didLoadPreferencesRef.current = true;
+        return;
+      }
+
+      const preferences = JSON.parse(saved) as PlayerPreferences;
+      if (typeof preferences.volume === "number") setVolume(Math.min(1, Math.max(0, preferences.volume)));
+      if (typeof preferences.isMuted === "boolean") setIsMuted(preferences.isMuted);
+      if (preferences.age && ageOptions.includes(preferences.age)) setAge(preferences.age);
+      if (
+        preferences.playlistFilter &&
+        playlistFilterOptions.some((option) => option.value === preferences.playlistFilter)
+      ) {
+        setPlaylistFilter(preferences.playlistFilter);
+      }
+    } catch {
+      window.localStorage.removeItem(playerPreferenceStorageKey);
+    } finally {
+      didLoadPreferencesRef.current = true;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!didLoadPreferencesRef.current) return;
+
+    const preferences: PlayerPreferences = {
+      age,
+      isMuted,
+      playlistFilter,
+      volume,
+    };
+
+    window.localStorage.setItem(playerPreferenceStorageKey, JSON.stringify(preferences));
+  }, [age, isMuted, playlistFilter, volume]);
 
   useEffect(() => {
     let isCancelled = false;
