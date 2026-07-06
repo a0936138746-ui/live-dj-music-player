@@ -2036,6 +2036,48 @@ h1 {
   white-space: nowrap;
 }
 
+.mapping-tuner {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.12);
+}
+
+.mapping-tuner summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 36px;
+  padding: 0 10px;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.76rem;
+  font-weight: 950;
+  list-style: none;
+}
+
+.mapping-tuner summary::-webkit-details-marker {
+  display: none;
+}
+
+.mapping-tuner summary::after {
+  color: var(--accent);
+  content: "+";
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.mapping-tuner[open] {
+  border-color: color-mix(in srgb, var(--accent) 34%, rgba(255, 255, 255, 0.12));
+}
+
+.mapping-tuner[open] summary {
+  color: var(--text);
+}
+
+.mapping-tuner[open] summary::after {
+  content: "-";
+}
+
 .bpm-editor {
   display: grid;
   gap: 8px;

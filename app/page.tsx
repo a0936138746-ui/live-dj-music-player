@@ -2392,6 +2392,8 @@ export default function Home() {
                 </span>
               </div>
 
+              <details className="mapping-tuner">
+                <summary>手動校正</summary>
               <div className="bpm-editor" aria-label="快速調整 BPM">
                 <span>BPM 微調</span>
                 <div>
@@ -2427,6 +2429,7 @@ export default function Home() {
                 <RotateCcw size={15} />
                 回到 AUTO
               </button>
+              </details>
             </div>
 
             <div className="now-actions">
