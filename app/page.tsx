@@ -118,7 +118,11 @@ const singerDanceCycleMultipliers: Record<SingerDanceProfile, number> = {
   drop: 0.54,
 };
 
-const mediaBaseUrl = (process.env.NEXT_PUBLIC_MEDIA_BASE_URL ?? "").replace(/\/$/, "");
+const bundledCloudMediaBaseUrl =
+  process.env.NODE_ENV === "production"
+    ? "https://raw.githubusercontent.com/a0936138746-ui/live-dj-music-player/4691c9f/public"
+    : "";
+const mediaBaseUrl = (process.env.NEXT_PUBLIC_MEDIA_BASE_URL || bundledCloudMediaBaseUrl).replace(/\/$/, "");
 const djVariantAssetsEnabled = process.env.NEXT_PUBLIC_ENABLE_DJ_VARIANTS === "true";
 const singerFrameAssetsEnabled = process.env.NEXT_PUBLIC_ENABLE_SINGER_FRAMES === "true";
 

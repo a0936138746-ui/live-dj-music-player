@@ -34,15 +34,6 @@ public/music/*
 !public/music/.gitkeep
 
 public/assets/*.mp4
-!public/assets/dj-soft.mp4
-!public/assets/dj-soft-01.mp4
-!public/assets/dj-groove.mp4
-!public/assets/dj-groove-01.mp4
-!public/assets/dj-peak.mp4
-!public/assets/dj-peak-01.mp4
-!public/assets/dj-rock-live.mp4
-!public/assets/dj-rock-live-01.mp4
-!public/assets/dj-guest-01.mp4
 
 public/assets/holo-singer-frames/
 public/assets/holo-singer-source.png
