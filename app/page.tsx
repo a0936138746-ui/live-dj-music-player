@@ -1079,6 +1079,15 @@ export default function Home() {
       Math.floor((progress / 100) * song.lyric.length),
     );
   }, [progress, song]);
+  const visibleLyrics = useMemo(() => {
+    const start = Math.max(0, activeLyricIndex - 1);
+    const end = Math.min(song.lyric.length, activeLyricIndex + 2);
+
+    return song.lyric.slice(start, end).map((line, offset) => ({
+      index: start + offset,
+      line,
+    }));
+  }, [activeLyricIndex, song.lyric]);
 
   function stopLiveAudioLoop() {
     if (liveAudioFrameRef.current !== null) {
@@ -2600,8 +2609,8 @@ export default function Home() {
           </details>
 
           <div className="lyrics-strip" aria-label="歌詞">
-            {song.lyric.map((line, index) => (
-              <p className={index === activeLyricIndex ? "active" : ""} key={`${song.id}-${line}`}>
+            {visibleLyrics.map(({ index, line }) => (
+              <p className={index === activeLyricIndex ? "active" : ""} key={`${song.id}-${index}-${line}`}>
                 {line}
               </p>
             ))}

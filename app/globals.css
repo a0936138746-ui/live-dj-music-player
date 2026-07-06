@@ -2844,6 +2844,8 @@ h1 {
 .lyrics-strip {
   display: grid;
   gap: 8px;
+  min-height: 126px;
+  align-content: center;
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 8px;
   padding: 14px 16px;
