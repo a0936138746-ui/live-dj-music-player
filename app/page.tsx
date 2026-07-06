@@ -2179,7 +2179,11 @@ export default function Home() {
                 </article>
               );
             })}
-            <div className="shelf-panel">
+            <details className="shelf-panel">
+              <summary>
+                <span>下架區</span>
+                <strong>{shelvedSongs.length}</strong>
+              </summary>
               <div className="playlist-meta">
                 <span>下架區</span>
                 <span>{shelvedSongs.length} 首</span>
@@ -2206,7 +2210,7 @@ export default function Home() {
                   </article>
                 ))
               )}
-            </div>
+            </details>
           </aside>
 
           <section className={`dj-stage ${isPlaying ? "is-playing" : ""}`} aria-label="DJ 主視覺">

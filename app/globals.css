@@ -667,8 +667,49 @@ h1 {
   padding-top: 8px;
 }
 
+.shelf-panel summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 38px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 0 10px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.78rem;
+  font-weight: 950;
+  list-style: none;
+}
+
+.shelf-panel summary::-webkit-details-marker {
+  display: none;
+}
+
+.shelf-panel summary strong {
+  display: grid;
+  min-width: 26px;
+  height: 24px;
+  border: 1px solid color-mix(in srgb, var(--accent) 36%, transparent);
+  border-radius: 999px;
+  color: var(--accent);
+  font-size: 0.72rem;
+  place-items: center;
+}
+
+.shelf-panel[open] summary {
+  border-color: color-mix(in srgb, var(--accent) 34%, rgba(255, 255, 255, 0.12));
+  color: var(--text);
+}
+
+.shelf-panel > .playlist-meta {
+  display: none;
+}
+
 .shelf-empty {
   margin: 0;
+  margin-top: 8px;
   border: 1px dashed rgba(255, 255, 255, 0.14);
   border-radius: 8px;
   padding: 12px;
