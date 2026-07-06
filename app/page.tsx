@@ -2180,7 +2180,18 @@ export default function Home() {
               </div>
             ) : null}
             {playlist.length > 0 && filteredPlaylistRows.length === 0 ? (
-              <p className="shelf-empty">沒有符合目前搜尋或分類的歌曲。</p>
+              <div className="shelf-empty">
+                <span>沒有符合目前搜尋或分類的歌曲。</span>
+                <button
+                  onClick={() => {
+                    setPlaylistFilter("all");
+                    setSearchQuery("");
+                  }}
+                  type="button"
+                >
+                  顯示全部
+                </button>
+              </div>
             ) : null}
             {filteredPlaylistRows.map(({ effectiveSong: cardSong, index, item, scanStatus }) => {
               return (
