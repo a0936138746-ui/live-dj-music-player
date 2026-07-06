@@ -1350,10 +1350,20 @@ export default function Home() {
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
       const target = event.target as HTMLElement | null;
-      if (target?.tagName === "INPUT" || target?.tagName === "SELECT") return;
+      const tagName = target?.tagName;
+      if (
+        tagName === "BUTTON" ||
+        tagName === "INPUT" ||
+        tagName === "SELECT" ||
+        tagName === "TEXTAREA" ||
+        target?.isContentEditable
+      ) {
+        return;
+      }
 
       if (event.code === "Space") {
         event.preventDefault();
+        if (!playlist.length) return;
         setIsPlaying((current) => !current);
       }
 
@@ -1366,11 +1376,16 @@ export default function Home() {
         event.preventDefault();
         moveSong(-1);
       }
+
+      if (event.code === "KeyM") {
+        event.preventDefault();
+        setIsMuted((current) => !current);
+      }
     }
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [activeIndex]);
+  }, [activeIndex, playlist.length]);
 
   useEffect(() => {
     setTrackDuration(song.duration);
