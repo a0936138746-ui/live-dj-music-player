@@ -406,9 +406,31 @@ h1 {
   font-weight: 850;
 }
 
+.import-notice span {
+  min-width: 0;
+  flex: 1;
+}
+
 .import-notice svg {
   color: var(--accent);
   flex: 0 0 auto;
+}
+
+.import-notice button {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.055);
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.import-notice button:hover {
+  border-color: color-mix(in srgb, var(--accent) 46%, white 8%);
+  color: var(--accent);
 }
 
 .song-card {

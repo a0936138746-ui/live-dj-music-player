@@ -17,6 +17,7 @@ import {
   Upload,
   Volume2,
   VolumeX,
+  X,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
@@ -2095,6 +2096,9 @@ export default function Home() {
               <div className="import-notice">
                 <Sparkles size={14} />
                 <span>{importNotice}</span>
+                <button aria-label="關閉通知" onClick={() => setImportNotice("")} type="button">
+                  <X size={14} />
+                </button>
               </div>
             ) : null}
             {playlist.length > 0 && filteredPlaylistRows.length === 0 ? (
