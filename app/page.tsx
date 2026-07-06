@@ -2123,6 +2123,11 @@ export default function Home() {
                   type="search"
                   value={searchQuery}
                 />
+                {searchQuery ? (
+                  <button aria-label="清除搜尋" onClick={() => setSearchQuery("")} type="button">
+                    <X size={13} />
+                  </button>
+                ) : null}
               </label>
               <div className="playlist-filters" aria-label="風格篩選">
                 {playlistFilterOptions.map((option) => (
