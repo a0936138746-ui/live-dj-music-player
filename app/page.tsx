@@ -977,6 +977,7 @@ export default function Home() {
     () => getRecommendedTrackIndex(activeIndex, playlist, djSong, analysisById, moodOverrides, bpmOverrides),
     [activeIndex, analysisById, bpmOverrides, djSong, moodOverrides, playlist],
   );
+  const naturalNextIndex = playlist.length > 1 ? (activeIndex + 1) % playlist.length : -1;
   const recommendedSong = recommendedIndex >= 0 ? playlist[recommendedIndex] : undefined;
   const recommendedDjSong = recommendedSong
     ? getEffectiveSong(
@@ -986,7 +987,9 @@ export default function Home() {
         bpmOverrides[recommendedSong.id],
       )
     : undefined;
-  const queueNextSong = playlist.length > 1 ? playlist[(activeIndex + 1) % playlist.length] : undefined;
+  const isRecommendedDifferentFromQueue =
+    recommendedIndex >= 0 && naturalNextIndex >= 0 && recommendedIndex !== naturalNextIndex;
+  const queueNextSong = naturalNextIndex >= 0 ? playlist[naturalNextIndex] : undefined;
   const queueNextDjSong = queueNextSong
     ? getEffectiveSong(
         queueNextSong,
@@ -2615,8 +2618,8 @@ export default function Home() {
             </div>
 
             {recommendedSong && recommendedDjSong ? (
-              <div className="next-track-card">
-                <span>Next fit</span>
+              <div className={`next-track-card ${isRecommendedDifferentFromQueue ? "is-smart" : ""}`}>
+                <span>{isRecommendedDifferentFromQueue ? "智慧推薦" : "下一首接續"}</span>
                 <strong>{recommendedSong.title}</strong>
                 <small>
                   {getMoodLabel(recommendedDjSong.mood)} / {recommendedDjSong.bpm} BPM
