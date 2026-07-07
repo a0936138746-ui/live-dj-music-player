@@ -1834,6 +1834,17 @@ export default function Home() {
     void updateStoredLocalSongShelfStatus(restoredSong.id, false).catch(() => undefined);
   }
 
+  function restoreAllShelvedSongs() {
+    if (!shelvedSongs.length) return;
+
+    const songsToRestore = [...shelvedSongs];
+    setShelvedSongs([]);
+    setPlaylist((current) => [...current, ...songsToRestore]);
+    songsToRestore.forEach((item) => {
+      void updateStoredLocalSongShelfStatus(item.id, false).catch(() => undefined);
+    });
+  }
+
   function clearAllSongs() {
     const confirmed = window.confirm("確定要全部清除嗎？這會移除目前歌單、下架區與已儲存的本機匯入歌曲。");
     if (!confirmed) return;
@@ -2300,6 +2311,13 @@ export default function Home() {
                 <span>下架區</span>
                 <span>{shelvedSongs.length} 首</span>
               </div>
+              {shelvedSongs.length > 0 ? (
+                <div className="shelf-actions">
+                  <button onClick={restoreAllShelvedSongs} type="button">
+                    全部上架
+                  </button>
+                </div>
+              ) : null}
               {shelvedSongs.length === 0 ? (
                 <p className="shelf-empty">目前沒有下架歌曲</p>
               ) : (

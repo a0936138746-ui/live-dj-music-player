@@ -746,6 +746,27 @@ h1 {
   display: none;
 }
 
+.shelf-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+
+.shelf-actions button {
+  border: 1px solid color-mix(in srgb, var(--accent) 42%, white 8%);
+  border-radius: 8px;
+  padding: 7px 10px;
+  background: color-mix(in srgb, var(--accent) 12%, rgba(255, 255, 255, 0.05));
+  color: var(--text);
+  cursor: pointer;
+  font-size: 0.74rem;
+  font-weight: 900;
+}
+
+.shelf-actions button:hover {
+  background: color-mix(in srgb, var(--accent) 20%, rgba(255, 255, 255, 0.08));
+}
+
 .shelf-empty {
   display: grid;
   gap: 10px;
