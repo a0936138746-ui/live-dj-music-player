@@ -795,6 +795,37 @@ h1 {
   background: color-mix(in srgb, var(--accent) 20%, rgba(255, 255, 255, 0.08));
 }
 
+.active-song-hint {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 8px;
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, rgba(255, 255, 255, 0.12));
+  border-radius: 8px;
+  padding: 9px 10px;
+  background: color-mix(in srgb, var(--accent) 10%, rgba(0, 0, 0, 0.22));
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 850;
+}
+
+.active-song-hint button {
+  flex: 0 0 auto;
+  border: 1px solid color-mix(in srgb, var(--accent) 44%, white 8%);
+  border-radius: 8px;
+  padding: 6px 9px;
+  background: color-mix(in srgb, var(--accent) 14%, rgba(255, 255, 255, 0.05));
+  color: var(--text);
+  cursor: pointer;
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.active-song-hint button:hover {
+  background: color-mix(in srgb, var(--accent) 22%, rgba(255, 255, 255, 0.08));
+}
+
 .shelf-card {
   display: grid;
   grid-template-columns: 1fr auto;

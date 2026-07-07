@@ -1037,6 +1037,8 @@ export default function Home() {
       return matchesFilter && (query.length === 0 || searchableText.includes(query));
     });
   }, [playlistFilter, playlistRows, searchQuery]);
+  const isActiveSongVisible = filteredPlaylistRows.some((row) => row.index === activeIndex);
+  const shouldShowActiveSongHint = playlist.length > 0 && filteredPlaylistRows.length > 0 && !isActiveSongVisible;
   const playlistFilterCounts = useMemo(
     () =>
       playlistRows.reduce<Record<PlaylistFilter, number>>(
@@ -2219,6 +2221,20 @@ export default function Home() {
                   type="button"
                 >
                   顯示全部
+                </button>
+              </div>
+            ) : null}
+            {shouldShowActiveSongHint ? (
+              <div className="active-song-hint">
+                <span>目前播放被篩選隱藏</span>
+                <button
+                  onClick={() => {
+                    setPlaylistFilter("all");
+                    setSearchQuery("");
+                  }}
+                  type="button"
+                >
+                  顯示目前播放
                 </button>
               </div>
             ) : null}
