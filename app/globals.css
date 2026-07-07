@@ -2750,7 +2750,8 @@ h1 {
   gap: 8px;
 }
 
-.control-badges span {
+.control-badges span,
+.control-badges button {
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 8px;
   padding: 7px 9px;
@@ -2761,10 +2762,20 @@ h1 {
   white-space: nowrap;
 }
 
-.control-badges span.is-live {
+.control-badges button {
+  cursor: pointer;
+}
+
+.control-badges span.is-live,
+.control-badges button.is-smart {
   border-color: color-mix(in srgb, var(--accent) 64%, white 10%);
   background: color-mix(in srgb, var(--accent) 18%, rgba(255, 255, 255, 0.06));
   color: var(--accent);
+}
+
+.control-badges button:hover {
+  border-color: color-mix(in srgb, var(--accent) 42%, white 8%);
+  color: var(--text);
 }
 
 .control-focus-strip {
@@ -2985,12 +2996,23 @@ h1 {
     rgba(255, 255, 255, 0.04);
 }
 
+.queue-next-card.is-smart {
+  border-color: color-mix(in srgb, #ff4fbd 38%, var(--accent) 28%);
+  background:
+    linear-gradient(135deg, rgba(255, 79, 189, 0.14), transparent 70%),
+    rgba(0, 0, 0, 0.14);
+}
+
 .queue-next-card span,
 .queue-next-card small {
   color: var(--muted);
   font-size: 0.68rem;
   font-weight: 850;
   text-transform: uppercase;
+}
+
+.queue-next-card.is-smart span {
+  color: #ff8fe2;
 }
 
 .queue-next-card strong {

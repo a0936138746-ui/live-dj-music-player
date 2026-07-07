@@ -250,6 +250,7 @@ type PlayerPreferences = {
   isMuted?: boolean;
   playlistFilter?: PlaylistFilter;
   repeatOne?: boolean;
+  smartQueueEnabled?: boolean;
   volume?: number;
 };
 
@@ -871,6 +872,7 @@ export default function Home() {
   const [importNotice, setImportNotice] = useState("");
   const [isDraggingFiles, setIsDraggingFiles] = useState(false);
   const [repeatOne, setRepeatOne] = useState(false);
+  const [smartQueueEnabled, setSmartQueueEnabled] = useState(true);
   const [audioKick, setAudioKick] = useState(false);
   const [visualMode, setVisualMode] = useState<VisualMode>("idle");
   const [singerFrameIndex, setSingerFrameIndex] = useState(0);
@@ -989,13 +991,14 @@ export default function Home() {
     : undefined;
   const isRecommendedDifferentFromQueue =
     recommendedIndex >= 0 && naturalNextIndex >= 0 && recommendedIndex !== naturalNextIndex;
-  const queueNextSong = naturalNextIndex >= 0 ? playlist[naturalNextIndex] : undefined;
-  const queueNextDjSong = queueNextSong
+  const autoNextIndex = smartQueueEnabled && recommendedIndex >= 0 ? recommendedIndex : naturalNextIndex;
+  const autoNextSong = autoNextIndex >= 0 ? playlist[autoNextIndex] : undefined;
+  const autoNextDjSong = autoNextSong
     ? getEffectiveSong(
-        queueNextSong,
-        analysisById[queueNextSong.id],
-        moodOverrides[queueNextSong.id] ?? "auto",
-        bpmOverrides[queueNextSong.id],
+        autoNextSong,
+        analysisById[autoNextSong.id],
+        moodOverrides[autoNextSong.id] ?? "auto",
+        bpmOverrides[autoNextSong.id],
       )
     : undefined;
   const elapsedTime = (trackDuration * progress) / 100;
@@ -1260,6 +1263,7 @@ export default function Home() {
       if (typeof preferences.volume === "number") setVolume(Math.min(1, Math.max(0, preferences.volume)));
       if (typeof preferences.isMuted === "boolean") setIsMuted(preferences.isMuted);
       if (typeof preferences.repeatOne === "boolean") setRepeatOne(preferences.repeatOne);
+      if (typeof preferences.smartQueueEnabled === "boolean") setSmartQueueEnabled(preferences.smartQueueEnabled);
       if (preferences.age && ageOptions.includes(preferences.age)) setAge(preferences.age);
       if (
         preferences.playlistFilter &&
@@ -1282,11 +1286,12 @@ export default function Home() {
       isMuted,
       playlistFilter,
       repeatOne,
+      smartQueueEnabled,
       volume,
     };
 
     window.localStorage.setItem(playerPreferenceStorageKey, JSON.stringify(preferences));
-  }, [age, isMuted, playlistFilter, repeatOne, volume]);
+  }, [age, isMuted, playlistFilter, repeatOne, smartQueueEnabled, volume]);
 
   useEffect(() => {
     let isCancelled = false;
@@ -1441,12 +1446,12 @@ export default function Home() {
 
       if (event.code === "ArrowRight") {
         event.preventDefault();
-        moveSong(1);
+        playAutoNextSong();
       }
 
       if (event.code === "ArrowLeft") {
         event.preventDefault();
-        moveSong(-1);
+        playPreviousSong();
       }
 
       if (event.code === "KeyM") {
@@ -1457,7 +1462,7 @@ export default function Home() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [activeIndex, playlist.length, searchQuery]);
+  }, [activeIndex, autoNextIndex, elapsedTime, playlist.length, searchQuery]);
 
   useEffect(() => {
     setTrackDuration(song.duration);
@@ -1613,6 +1618,28 @@ export default function Home() {
 
     const nextIndex = (activeIndex + direction + playlist.length) % playlist.length;
     selectSong(nextIndex);
+  }
+
+  function playAutoNextSong() {
+    if (playlist.length === 0) return;
+
+    if (autoNextIndex >= 0) {
+      selectSong(autoNextIndex);
+      return;
+    }
+
+    moveSong(1);
+  }
+
+  function playPreviousSong() {
+    if (playlist.length === 0) return;
+
+    if (elapsedTime > 5) {
+      seekTrack(0);
+      return;
+    }
+
+    moveSong(-1);
   }
 
   function updateAudioProgress() {
@@ -2655,7 +2682,7 @@ export default function Home() {
                   return;
                 }
 
-                moveSong(1);
+                playAutoNextSong();
               }}
               onError={() => {
                 setIsPlaying(false);
@@ -2683,6 +2710,15 @@ export default function Home() {
             <div className="control-badges" aria-label="播放狀態">
               <span className={isPlaying ? "is-live" : ""}>{isPlaying ? "ON AIR" : "STANDBY"}</span>
               <span>{audioStatus}</span>
+              <span>{hasSongs ? `${activeIndex + 1}/${playlist.length}` : "0/0"}</span>
+              <button
+                aria-pressed={smartQueueEnabled}
+                className={smartQueueEnabled ? "is-smart" : ""}
+                onClick={() => setSmartQueueEnabled((current) => !current)}
+                type="button"
+              >
+                {smartQueueEnabled ? "AI 接歌" : "清單接歌"}
+              </button>
             </div>
           </div>
 
@@ -2720,12 +2756,12 @@ export default function Home() {
               <small>{energyLabel}</small>
             </div>
 
-            {queueNextSong && queueNextDjSong ? (
-              <button className="queue-next-card" onClick={() => moveSong(1)} type="button">
-                <span>下一首</span>
-                <strong>{queueNextSong.title}</strong>
+            {autoNextSong && autoNextDjSong ? (
+              <button className={`queue-next-card ${smartQueueEnabled ? "is-smart" : ""}`} onClick={playAutoNextSong} type="button">
+                <span>{smartQueueEnabled ? "AI 接歌" : "清單下一首"}</span>
+                <strong>{autoNextSong.title}</strong>
                 <small>
-                  {getMoodLabel(queueNextDjSong.mood)} / {queueNextDjSong.bpm} BPM
+                  {getMoodLabel(autoNextDjSong.mood)} / {autoNextDjSong.bpm} BPM
                 </small>
               </button>
             ) : (
@@ -2795,7 +2831,7 @@ export default function Home() {
               </div>
 
               <div className="controls">
-                <button aria-label="上一首" disabled={!hasSongs} onClick={() => moveSong(-1)} type="button">
+                <button aria-label="上一首" disabled={!hasSongs} onClick={playPreviousSong} type="button">
                   <SkipBack size={20} />
                 </button>
                 <button
@@ -2807,7 +2843,7 @@ export default function Home() {
                 >
                   {isPlaying ? <Pause size={26} /> : <Play size={26} />}
                 </button>
-                <button aria-label="下一首" disabled={!hasSongs} onClick={() => moveSong(1)} type="button">
+                <button aria-label="下一首" disabled={!hasSongs} onClick={playAutoNextSong} type="button">
                   <SkipForward size={20} />
                 </button>
                 <button
