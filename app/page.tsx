@@ -890,6 +890,7 @@ export default function Home() {
   const [shelvedSongs, setShelvedSongs] = useState<Song[]>([]);
   const [availableDjVideos, setAvailableDjVideos] = useState<Record<string, boolean>>({});
   const audioRef = useRef<HTMLAudioElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const audioSourceRef = useRef<MediaElementAudioSourceNode | null>(null);
@@ -1401,6 +1402,22 @@ export default function Home() {
     function handleKeyDown(event: KeyboardEvent) {
       const target = event.target as HTMLElement | null;
       const tagName = target?.tagName;
+      const isSearchShortcut = (event.ctrlKey || event.metaKey) && event.code === "KeyK";
+
+      if (isSearchShortcut) {
+        event.preventDefault();
+        searchInputRef.current?.focus();
+        searchInputRef.current?.select();
+        return;
+      }
+
+      if (event.code === "Escape" && searchQuery) {
+        event.preventDefault();
+        setSearchQuery("");
+        searchInputRef.current?.blur();
+        return;
+      }
+
       if (
         tagName === "BUTTON" ||
         tagName === "INPUT" ||
@@ -1435,7 +1452,7 @@ export default function Home() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [activeIndex, playlist.length]);
+  }, [activeIndex, playlist.length, searchQuery]);
 
   useEffect(() => {
     setTrackDuration(song.duration);
@@ -2120,6 +2137,7 @@ export default function Home() {
                   aria-label="搜尋歌曲"
                   onChange={(event) => setSearchQuery(event.target.value)}
                   placeholder="搜尋歌曲 / 歌手 / BPM"
+                  ref={searchInputRef}
                   type="search"
                   value={searchQuery}
                 />
