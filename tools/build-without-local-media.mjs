@@ -71,6 +71,7 @@ function shouldCopyToStage(source) {
 
   if (
     topLevel === ".git" ||
+    topLevel === ".local-media" ||
     topLevel === ".local-media-cache" ||
     topLevel === ".next" ||
     topLevel === ".next-build-staging" ||

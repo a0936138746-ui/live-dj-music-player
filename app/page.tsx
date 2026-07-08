@@ -134,6 +134,13 @@ function getMediaUrl(src: string) {
   return `${mediaBaseUrl}${src.startsWith("/") ? src : `/${src}`}`;
 }
 
+function getDjMediaUrl(src: string) {
+  if (/^(blob:|data:|https?:\/\/)/i.test(src)) return src;
+  if (mediaBaseUrl) return getMediaUrl(src);
+
+  return `/api/local-media${src.startsWith("/") ? src : `/${src}`}`;
+}
+
 function getSingerFrameSrc(mode: VisualMode, frameIndex: number) {
   const frameNumber = String(frameIndex + 1).padStart(2, "0");
   return getMediaUrl(`/assets/holo-singer-frames/${mode}/${mode}-${frameNumber}.png`);
@@ -1213,7 +1220,7 @@ export default function Home() {
     Promise.all(
       plannedDjVideoSlots.map(async (source) => {
         try {
-          const response = await fetch(getMediaUrl(source), { method: "HEAD" });
+          const response = await fetch(getDjMediaUrl(source), { method: "HEAD" });
           return [source, response.ok] as const;
         } catch {
           return [source, false] as const;
@@ -2450,7 +2457,7 @@ export default function Home() {
                 onLoadedData={() => setIsVideoReady(true)}
                 playsInline
                 preload="auto"
-                src={getMediaUrl(djVideo)}
+                src={getDjMediaUrl(djVideo)}
               />
             </div>
             {renderedGuestDjScene && supportDjVideo ? (
@@ -2469,7 +2476,7 @@ export default function Home() {
                   onLoadedData={() => setIsGuestVideoReady(true)}
                   playsInline
                   preload="auto"
-                  src={getMediaUrl(supportDjVideo)}
+                  src={getDjMediaUrl(supportDjVideo)}
                 />
               </div>
             ) : null}
@@ -2882,7 +2889,7 @@ export default function Home() {
       </section>
       <div aria-hidden="true" className="video-preloaders">
         {djVideoSources.filter((source) => availableDjVideos[source]).map((source) => (
-          <video key={source} muted playsInline preload="auto" src={getMediaUrl(source)} />
+          <video key={source} muted playsInline preload="auto" src={getDjMediaUrl(source)} />
         ))}
       </div>
     </main>
