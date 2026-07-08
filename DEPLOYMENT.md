@@ -71,6 +71,14 @@ NEXT_PUBLIC_MEDIA_BASE_URL=https://github.com/YOUR_NAME/YOUR_REPO/releases/downl
 NEXT_PUBLIC_MEDIA_PATH_MODE=flat
 ```
 
+本專案目前已提供 `.env.production`，正式部署會直接讀取 GitHub Release 的 DJ 影片：
+
+```text
+NEXT_PUBLIC_MEDIA_BASE_URL=https://github.com/a0936138746-ui/live-dj-music-player/releases/download/dj-media-v1
+NEXT_PUBLIC_MEDIA_PATH_MODE=flat
+NEXT_PUBLIC_ENABLE_DJ_VARIANTS=true
+```
+
 建立 GitHub Release 媒體庫可以用：
 
 ```powershell

@@ -8,6 +8,7 @@ const localAssetsDir = path.join(root, ".local-media", "assets");
 const args = process.argv.slice(2);
 const explicitBaseUrl = args.find((arg) => arg.startsWith("--base-url="))?.slice("--base-url=".length);
 const shouldCheckCloud = args.includes("--cloud") || Boolean(explicitBaseUrl);
+const cloudPathMode = args.includes("--flat") || process.env.NEXT_PUBLIC_MEDIA_PATH_MODE === "flat" ? "flat" : "assets";
 
 function readEnvValue(fileName, key) {
   const filePath = path.join(root, fileName);
@@ -42,7 +43,8 @@ function getLocalVideos() {
 }
 
 async function checkCloudFile(baseUrl, fileName) {
-  const url = `${baseUrl}/assets/${fileName}`;
+  const filePath = cloudPathMode === "flat" ? fileName : `assets/${fileName}`;
+  const url = `${baseUrl}/${filePath}`;
 
   try {
     const headResponse = await fetch(url, {
@@ -106,6 +108,7 @@ async function printCloudReport(baseUrl) {
   console.log("");
   console.log("DJ media cloud check");
   console.log(`Base URL: ${baseUrl || "(not set)"}`);
+  console.log(`Path mode: ${cloudPathMode}`);
 
   if (!baseUrl) {
     console.log("Cloud check skipped. Set NEXT_PUBLIC_MEDIA_BASE_URL or pass --base-url=https://...");
