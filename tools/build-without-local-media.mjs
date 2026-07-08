@@ -63,12 +63,22 @@ function restoreLocalVideos(videos) {
 
 function runNextBuild() {
   return new Promise((resolve) => {
-    const command = process.platform === "win32" ? "npx.cmd" : "npx";
-    const child = spawn(command, ["next", "build"], {
-      cwd: root,
-      shell: false,
-      stdio: "inherit",
-    });
+    const nextCli = path.join(root, "node_modules", "next", "dist", "bin", "next");
+    let child;
+
+    try {
+      child = spawn(process.execPath, [nextCli, "build"], {
+        cwd: root,
+        shell: false,
+        stdio: "inherit",
+      });
+    } catch (error) {
+      const reason = error && typeof error === "object" && "code" in error ? ` (${error.code})` : "";
+      console.error("");
+      console.error(`Cannot start Next.js build${reason}.`);
+      resolve(1);
+      return;
+    }
 
     child.on("close", (code) => resolve(code ?? 1));
     child.on("error", () => resolve(1));
