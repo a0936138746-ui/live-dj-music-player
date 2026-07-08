@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "node tools/build-without-local-media.mjs",
+    "media:check": "node tools/check-dj-media.mjs",
     "typecheck": "tsc --noEmit",
     "start": "next start",
     "lint": "next lint"

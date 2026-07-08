@@ -58,3 +58,23 @@ dj-guest-01.mp4
 ```
 
 其他備用或舊影片可以留在 `.local-media/assets`，但上線分享時，只要雲端有上面這些檔名，主要 DJ 播放就能正常工作。
+
+## 檢查影片是否齊全
+
+檢查本機 `.local-media/assets`：
+
+```powershell
+npm run media:check
+```
+
+如果已經有雲端網址，可以一起檢查雲端：
+
+```powershell
+npm run media:check -- --base-url=https://your-cdn.example.com
+```
+
+也可以把 `NEXT_PUBLIC_MEDIA_BASE_URL` 放在 `.env.local`，再執行：
+
+```powershell
+npm run media:check -- --cloud
+```

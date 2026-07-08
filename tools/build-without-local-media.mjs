@@ -1,13 +1,13 @@
 import { spawn } from "node:child_process";
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, renameSync, rmdirSync, rmSync, symlinkSync } from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 const root = process.cwd();
 const assetsDir = path.join(root, "public", "assets");
 const cacheDir = path.join(root, ".local-media-cache", "assets");
-const stagingRoot = path.join(os.tmpdir(), "live-dj-next-build-staging");
+const stagingRoot = path.join(root, ".next-build-staging");
 const dryRun = process.argv.includes("--dry-run");
+const shouldUseStagedBuild = !process.env.VERCEL && process.env.CI !== "true";
 
 function getLocalVideos() {
   if (!existsSync(assetsDir)) return [];
@@ -88,10 +88,16 @@ function createStagedBuildRoot() {
   mkdirSync(stagingRoot, { recursive: true });
 
   const stageRoot = mkdtempSync(path.join(stagingRoot, "build-"));
-  cpSync(root, stageRoot, {
-    filter: shouldCopyToStage,
-    recursive: true,
-  });
+
+  for (const entry of readdirSync(root, { withFileTypes: true })) {
+    const source = path.join(root, entry.name);
+    if (!shouldCopyToStage(source)) continue;
+
+    cpSync(source, path.join(stageRoot, entry.name), {
+      filter: shouldCopyToStage,
+      recursive: true,
+    });
+  }
 
   symlinkSync(path.join(root, "node_modules"), path.join(stageRoot, "node_modules"), "junction");
 
@@ -112,7 +118,7 @@ function cleanupStagedBuild() {
   try {
     rmSync(stagingRoot, { recursive: true, force: true });
   } catch {
-    // The staging folder lives in the OS temp directory; the next build can replace it.
+    // The next build can replace the staging folder if Windows keeps a handle briefly.
   }
 }
 
@@ -159,18 +165,23 @@ process.on("SIGINT", restoreAndExit);
 process.on("SIGTERM", restoreAndExit);
 
 try {
-  const moveResult = moveLocalVideosOut(videos);
-
-  if (moveResult.ok) {
-    exitCode = await runNextBuild();
-  } else {
-    console.warn("");
-    console.warn(`Cannot move ${moveResult.file}${moveResult.reason} because Windows is locking it.`);
-    console.warn("Building from a temporary copy without local MP4 files instead.");
+  if (shouldUseStagedBuild) {
+    console.log("Running local production build from a temporary copy.");
+    console.log("This keeps the dev server .next cache untouched.");
 
     const stageRoot = createStagedBuildRoot();
     exitCode = await runNextBuild(stageRoot);
-    cleanupStagedBuild();
+  } else {
+    const moveResult = moveLocalVideosOut(videos);
+
+    if (moveResult.ok) {
+      exitCode = await runNextBuild();
+    } else {
+      console.error("");
+      console.error(`Cannot move ${moveResult.file}${moveResult.reason} because Windows is locking it.`);
+      console.error("The media files were left in public/assets.");
+      exitCode = 1;
+    }
   }
 } finally {
   restoreLocalVideos(videos);

@@ -28,6 +28,7 @@ Thumbs.db
 .npm-cache/
 .local-media-cache/
 .local-media/
+.next-build-staging/
 tsconfig.tsbuildinfo
 
 # Keep local heavy media out of cloud deployments by default.
