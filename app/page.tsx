@@ -897,6 +897,7 @@ export default function Home() {
   const [playlist, setPlaylist] = useState<Song[]>(defaultSongs);
   const [shelvedSongs, setShelvedSongs] = useState<Song[]>([]);
   const [availableDjVideos, setAvailableDjVideos] = useState<Record<string, boolean>>({});
+  const [failedDjVideos, setFailedDjVideos] = useState<Record<string, boolean>>({});
   const [didCheckDjVideos, setDidCheckDjVideos] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -910,6 +911,11 @@ export default function Home() {
   const lastLiveMetricUpdateRef = useRef(0);
   const lastVisualModeBeatRef = useRef(-1);
   const didLoadPreferencesRef = useRef(false);
+  const playableDjVideos = useMemo(() => {
+    return Object.fromEntries(
+      plannedDjVideoSlots.map((source) => [source, Boolean(availableDjVideos[source]) && !failedDjVideos[source]]),
+    ) as Record<string, boolean>;
+  }, [availableDjVideos, failedDjVideos]);
 
   const hasSongs = playlist.length > 0;
   const song = playlist[activeIndex] ?? emptySong;
@@ -930,14 +936,18 @@ export default function Home() {
   const djSong = getEffectiveSong(song, activeAnalysis, moodOverride, bpmOverride);
   const djState = getDjState(djSong, progress, isPlaying);
   const djEnergy = djState.label;
-  const blackDjVideo = resolveDjVideo(djState.video, availableDjVideos, activeIndex);
+  const blackDjVideo = resolveDjVideo(djState.video, playableDjVideos, activeIndex);
   const redDjVideo =
-    resolveOptionalDjVideo(getPerformerDjVideo(djState.video, "red"), availableDjVideos, activeIndex + 1) ??
-    resolveOptionalDjVideo(djVisual.guestSlot, availableDjVideos, activeIndex + 1);
+    resolveOptionalDjVideo(getPerformerDjVideo(djState.video, "red"), playableDjVideos, activeIndex + 1) ??
+    resolveOptionalDjVideo(djVisual.guestSlot, playableDjVideos, activeIndex + 1);
   const directorScene = getDjDirectorScene(djSong, progress, isPlaying, Boolean(redDjVideo));
   const djVideo = directorScene.mainPerformer === "red" && redDjVideo ? redDjVideo : blackDjVideo;
   const mainDjName = djPerformerNames[directorScene.mainPerformer];
-  const availableDjVideoCount = plannedDjVideoSlots.filter((source) => availableDjVideos[source]).length;
+  const availableDjVideoCount = plannedDjVideoSlots.filter((source) => playableDjVideos[source]).length;
+  const failedDjVideoCount = plannedDjVideoSlots.filter((source) => failedDjVideos[source]).length;
+  const isActiveDjVideoAvailable = Boolean(playableDjVideos[djVideo]);
+  const shouldRenderMainDjVideo = !didCheckDjVideos || isActiveDjVideoAvailable;
+  const shouldShowDjFallback = didCheckDjVideos && !isActiveDjVideoAvailable;
   const djMediaSourceLabel = isCloudMediaConfigured ? "雲端影片" : "本機影片";
   const djMediaStatusTone = !didCheckDjVideos
     ? "pending"
@@ -952,12 +962,16 @@ export default function Home() {
     ? "檢查中"
     : isProductionMediaMissing
       ? "雲端未設定"
+      : failedDjVideoCount > 0
+        ? `${availableDjVideoCount}/${plannedDjVideoSlots.length} 可播 / ${failedDjVideoCount} 失敗`
       : `${availableDjVideoCount}/${plannedDjVideoSlots.length} 已連線`;
   const shouldShowDjMediaNotice =
-    didCheckDjVideos && (isProductionMediaMissing || availableDjVideoCount === 0);
+    didCheckDjVideos && (isProductionMediaMissing || availableDjVideoCount === 0 || failedDjVideoCount > 0);
   const djMediaNoticeText = isProductionMediaMissing
     ? "分享或上線版本需要設定 NEXT_PUBLIC_MEDIA_BASE_URL，否則觀眾看不到 DJ 影片。"
-    : "目前沒有偵測到 DJ 影片，請確認 .local-media/assets 或雲端媒體來源。";
+    : availableDjVideoCount === 0
+      ? "目前沒有偵測到 DJ 影片，請確認 .local-media/assets 或雲端媒體來源。"
+      : `有 ${failedDjVideoCount} 支 DJ 影片載入失敗，系統會先避開它們並保留舞台待機畫面。`;
   const liveSupportDjScene =
     directorScene.support && (directorScene.support.performer !== "red" || redDjVideo)
       ? {
@@ -1258,6 +1272,22 @@ export default function Home() {
       isCancelled = true;
     };
   }, []);
+
+  function markDjVideoReady(source: string) {
+    setAvailableDjVideos((current) => (current[source] ? current : { ...current, [source]: true }));
+    setFailedDjVideos((current) => {
+      if (!current[source]) return current;
+
+      const next = { ...current };
+      delete next[source];
+      return next;
+    });
+  }
+
+  function markDjVideoFailed(source: string) {
+    setAvailableDjVideos((current) => (current[source] === false ? current : { ...current, [source]: false }));
+    setFailedDjVideos((current) => (current[source] ? current : { ...current, [source]: true }));
+  }
 
   useEffect(() => {
     return () => {
@@ -2475,19 +2505,36 @@ export default function Home() {
                 <span>{mainDjName} LIVE TAKE</span>
               </div>
             ) : null}
-            <div className={`dj-motion performer-${directorScene.mainPerformer}`}>
-              <video
-                aria-label={isPlaying ? "AI DJ 播放動作影片" : "AI DJ 待機影片"}
-                autoPlay
-                className={`dj-video ${isVideoReady ? "is-ready" : ""}`}
-                key={djVideo}
-                loop
-                muted
-                onLoadedData={() => setIsVideoReady(true)}
-                playsInline
-                preload="auto"
-                src={getDjMediaUrl(djVideo)}
-              />
+            <div className={`dj-motion performer-${directorScene.mainPerformer} ${shouldShowDjFallback ? "has-fallback" : ""}`}>
+              {shouldRenderMainDjVideo ? (
+                <video
+                  aria-label={isPlaying ? "AI DJ 播放動作影片" : "AI DJ 待機影片"}
+                  autoPlay
+                  className={`dj-video ${isVideoReady ? "is-ready" : ""}`}
+                  key={djVideo}
+                  loop
+                  muted
+                  onError={() => {
+                    setIsVideoReady(false);
+                    markDjVideoFailed(djVideo);
+                  }}
+                  onLoadedData={() => {
+                    setIsVideoReady(true);
+                    markDjVideoReady(djVideo);
+                  }}
+                  playsInline
+                  preload="auto"
+                  src={getDjMediaUrl(djVideo)}
+                />
+              ) : null}
+              {shouldShowDjFallback ? (
+                <div className="dj-media-fallback" aria-label="DJ 影片待機畫面">
+                  <span className="fallback-ring" />
+                  <span className="fallback-wave" />
+                  <strong>DJ MEDIA STANDBY</strong>
+                  <small>{isCloudMediaConfigured ? "檢查雲端影片路徑" : "等待本機 DJ 影片"}</small>
+                </div>
+              ) : null}
             </div>
             {renderedGuestDjScene && supportDjVideo ? (
               <div
@@ -2502,7 +2549,14 @@ export default function Home() {
                   key={supportDjVideo}
                   loop
                   muted
-                  onLoadedData={() => setIsGuestVideoReady(true)}
+                  onError={() => {
+                    setIsGuestVideoReady(false);
+                    markDjVideoFailed(supportDjVideo);
+                  }}
+                  onLoadedData={() => {
+                    setIsGuestVideoReady(true);
+                    markDjVideoReady(supportDjVideo);
+                  }}
                   playsInline
                   preload="auto"
                   src={getDjMediaUrl(supportDjVideo)}
@@ -2825,7 +2879,7 @@ export default function Home() {
               <span>{isPlaying ? djEnergy : "READY"}</span>
               <span>{song.language}</span>
               <span>{audioStatus}</span>
-              <span>{availableDjVideos[djState.video] ? "新 DJ" : "備用 DJ"}</span>
+              <span>{playableDjVideos[djState.video] ? "新 DJ" : "備用 DJ"}</span>
             </div>
 
             <div className="analysis-row" aria-label="自動分檢">
@@ -2925,7 +2979,7 @@ export default function Home() {
         </section>
       </section>
       <div aria-hidden="true" className="video-preloaders">
-        {djVideoSources.filter((source) => availableDjVideos[source]).map((source) => (
+        {djVideoSources.filter((source) => playableDjVideos[source]).map((source) => (
           <video key={source} muted playsInline preload="auto" src={getDjMediaUrl(source)} />
         ))}
       </div>
