@@ -1,10 +1,12 @@
 import { spawn } from "node:child_process";
-import { existsSync, mkdirSync, readdirSync, renameSync, rmSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, renameSync, rmdirSync, rmSync, symlinkSync } from "node:fs";
+import os from "node:os";
 import path from "node:path";
 
 const root = process.cwd();
 const assetsDir = path.join(root, "public", "assets");
 const cacheDir = path.join(root, ".local-media-cache", "assets");
+const stagingRoot = path.join(os.tmpdir(), "live-dj-next-build-staging");
 const dryRun = process.argv.includes("--dry-run");
 
 function getLocalVideos() {
@@ -21,7 +23,7 @@ function getLocalVideos() {
 }
 
 function moveLocalVideosOut(videos) {
-  if (videos.length === 0) return;
+  if (videos.length === 0) return { ok: true };
   mkdirSync(cacheDir, { recursive: true });
 
   for (const video of videos) {
@@ -36,13 +38,11 @@ function moveLocalVideosOut(videos) {
       restoreLocalVideos(videos);
 
       const reason = error && typeof error === "object" && "code" in error ? ` (${error.code})` : "";
-      console.error("");
-      console.error(`Cannot prepare local build because Windows is locking ${video.file}${reason}.`);
-      console.error("Close the local preview/browser tab or stop the dev server, then run npm run build again.");
-      console.error("Your media files were left in public/assets.");
-      process.exit(1);
+      return { ok: false, file: video.file, reason };
     }
   }
+
+  return { ok: true };
 }
 
 function restoreLocalVideos(videos) {
@@ -61,14 +61,68 @@ function restoreLocalVideos(videos) {
   }
 }
 
-function runNextBuild() {
+function shouldCopyToStage(source) {
+  const relativePath = path.relative(root, source);
+
+  if (!relativePath) return true;
+
+  const parts = relativePath.split(path.sep);
+  const topLevel = parts[0];
+
+  if (
+    topLevel === ".git" ||
+    topLevel === ".local-media-cache" ||
+    topLevel === ".next" ||
+    topLevel === ".next-build-staging" ||
+    topLevel === "node_modules"
+  ) {
+    return false;
+  }
+
+  return !(parts[0] === "public" && parts[1] === "assets" && source.toLowerCase().endsWith(".mp4"));
+}
+
+function createStagedBuildRoot() {
+  rmSync(stagingRoot, { recursive: true, force: true });
+  mkdirSync(stagingRoot, { recursive: true });
+
+  const stageRoot = mkdtempSync(path.join(stagingRoot, "build-"));
+  cpSync(root, stageRoot, {
+    filter: shouldCopyToStage,
+    recursive: true,
+  });
+
+  symlinkSync(path.join(root, "node_modules"), path.join(stageRoot, "node_modules"), "junction");
+
+  return stageRoot;
+}
+
+function cleanupStagedBuild() {
+  try {
+    const [stageFolder] = existsSync(stagingRoot) ? readdirSync(stagingRoot) : [];
+    if (stageFolder) {
+      const stagedNodeModules = path.join(stagingRoot, stageFolder, "node_modules");
+      if (existsSync(stagedNodeModules)) rmdirSync(stagedNodeModules);
+    }
+  } catch {
+    // The staging folder is disposable; the next build will recreate it if cleanup is blocked.
+  }
+
+  try {
+    rmSync(stagingRoot, { recursive: true, force: true });
+  } catch {
+    // The staging folder lives in the OS temp directory; the next build can replace it.
+  }
+}
+
+function runNextBuild(buildRoot = root) {
   return new Promise((resolve) => {
     const nextCli = path.join(root, "node_modules", "next", "dist", "bin", "next");
     let child;
 
     try {
       child = spawn(process.execPath, [nextCli, "build"], {
-        cwd: root,
+        cwd: buildRoot,
         shell: false,
         stdio: "inherit",
       });
@@ -104,10 +158,22 @@ process.on("SIGINT", restoreAndExit);
 process.on("SIGTERM", restoreAndExit);
 
 try {
-  moveLocalVideosOut(videos);
-  exitCode = await runNextBuild();
+  const moveResult = moveLocalVideosOut(videos);
+
+  if (moveResult.ok) {
+    exitCode = await runNextBuild();
+  } else {
+    console.warn("");
+    console.warn(`Cannot move ${moveResult.file}${moveResult.reason} because Windows is locking it.`);
+    console.warn("Building from a temporary copy without local MP4 files instead.");
+
+    const stageRoot = createStagedBuildRoot();
+    exitCode = await runNextBuild(stageRoot);
+    cleanupStagedBuild();
+  }
 } finally {
   restoreLocalVideos(videos);
+  cleanupStagedBuild();
 }
 
 process.exit(exitCode);
