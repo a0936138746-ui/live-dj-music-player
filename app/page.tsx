@@ -119,11 +119,10 @@ const singerDanceCycleMultipliers: Record<SingerDanceProfile, number> = {
   drop: 0.54,
 };
 
-const bundledCloudMediaBaseUrl =
-  process.env.NODE_ENV === "production"
-    ? "https://raw.githubusercontent.com/a0936138746-ui/live-dj-music-player/4691c9f/public"
-    : "";
-const mediaBaseUrl = (process.env.NEXT_PUBLIC_MEDIA_BASE_URL || bundledCloudMediaBaseUrl).replace(/\/$/, "");
+const mediaBaseUrl = (process.env.NEXT_PUBLIC_MEDIA_BASE_URL || "").replace(/\/$/, "");
+const isProductionBuild = process.env.NODE_ENV === "production";
+const isCloudMediaConfigured = mediaBaseUrl.length > 0;
+const isProductionMediaMissing = isProductionBuild && !isCloudMediaConfigured;
 const djVariantAssetsEnabled = process.env.NEXT_PUBLIC_ENABLE_DJ_VARIANTS === "true";
 const singerFrameAssetsEnabled = process.env.NEXT_PUBLIC_ENABLE_SINGER_FRAMES === "true";
 
@@ -898,6 +897,7 @@ export default function Home() {
   const [playlist, setPlaylist] = useState<Song[]>(defaultSongs);
   const [shelvedSongs, setShelvedSongs] = useState<Song[]>([]);
   const [availableDjVideos, setAvailableDjVideos] = useState<Record<string, boolean>>({});
+  const [didCheckDjVideos, setDidCheckDjVideos] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -937,6 +937,27 @@ export default function Home() {
   const directorScene = getDjDirectorScene(djSong, progress, isPlaying, Boolean(redDjVideo));
   const djVideo = directorScene.mainPerformer === "red" && redDjVideo ? redDjVideo : blackDjVideo;
   const mainDjName = djPerformerNames[directorScene.mainPerformer];
+  const availableDjVideoCount = plannedDjVideoSlots.filter((source) => availableDjVideos[source]).length;
+  const djMediaSourceLabel = isCloudMediaConfigured ? "雲端影片" : "本機影片";
+  const djMediaStatusTone = !didCheckDjVideos
+    ? "pending"
+    : isProductionMediaMissing
+      ? "warning"
+      : availableDjVideoCount === 0
+        ? "error"
+        : availableDjVideoCount < plannedDjVideoSlots.length
+          ? "partial"
+          : "ready";
+  const djMediaStatusLabel = !didCheckDjVideos
+    ? "檢查中"
+    : isProductionMediaMissing
+      ? "雲端未設定"
+      : `${availableDjVideoCount}/${plannedDjVideoSlots.length} 已連線`;
+  const shouldShowDjMediaNotice =
+    didCheckDjVideos && (isProductionMediaMissing || availableDjVideoCount === 0);
+  const djMediaNoticeText = isProductionMediaMissing
+    ? "分享或上線版本需要設定 NEXT_PUBLIC_MEDIA_BASE_URL，否則觀眾看不到 DJ 影片。"
+    : "目前沒有偵測到 DJ 影片，請確認 .local-media/assets 或雲端媒體來源。";
   const liveSupportDjScene =
     directorScene.support && (directorScene.support.performer !== "red" || redDjVideo)
       ? {
@@ -1216,6 +1237,7 @@ export default function Home() {
 
   useEffect(() => {
     let isCancelled = false;
+    setDidCheckDjVideos(false);
 
     Promise.all(
       plannedDjVideoSlots.map(async (source) => {
@@ -1229,6 +1251,7 @@ export default function Home() {
     ).then((entries) => {
       if (isCancelled) return;
       setAvailableDjVideos(Object.fromEntries(entries));
+      setDidCheckDjVideos(true);
     });
 
     return () => {
@@ -2247,6 +2270,12 @@ export default function Home() {
                 </button>
               </div>
             ) : null}
+            {shouldShowDjMediaNotice ? (
+              <div className={`media-notice status-${djMediaStatusTone}`}>
+                <Sparkles size={14} />
+                <span>{djMediaNoticeText}</span>
+              </div>
+            ) : null}
             {playlist.length > 0 && filteredPlaylistRows.length === 0 ? (
               <div className="shelf-empty">
                 <span>沒有符合目前搜尋或分類的歌曲。</span>
@@ -2580,6 +2609,14 @@ export default function Home() {
                 <strong>{supportDjName}</strong>
               </div>
               <span>{directorModeLabel}</span>
+            </div>
+
+            <div className={`media-source-panel status-${djMediaStatusTone}`}>
+              <div>
+                <small>DJ 媒體來源</small>
+                <strong>{djMediaSourceLabel}</strong>
+              </div>
+              <span>{djMediaStatusLabel}</span>
             </div>
 
             <div className="mapping-panel" aria-label="DJ 歌曲判斷">

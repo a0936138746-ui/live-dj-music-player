@@ -450,6 +450,29 @@ h1 {
   color: var(--accent);
 }
 
+.media-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  border: 1px solid rgba(255, 207, 87, 0.42);
+  border-radius: 8px;
+  padding: 10px;
+  background: rgba(255, 207, 87, 0.1);
+  color: var(--text);
+  font-size: 0.78rem;
+  font-weight: 850;
+  line-height: 1.45;
+}
+
+.media-notice svg {
+  flex: 0 0 auto;
+  color: #ffcf57;
+}
+
+.media-notice span {
+  min-width: 0;
+}
+
 .song-card {
   position: relative;
   display: grid;
@@ -2105,6 +2128,54 @@ h1 {
 
 .now-dj-stat.performer-red strong {
   color: #ff6fa3;
+}
+
+.media-source-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border: 1px solid color-mix(in srgb, var(--accent) 26%, rgba(255, 255, 255, 0.12));
+  border-radius: 8px;
+  margin: 0 0 12px;
+  padding: 10px;
+  background: color-mix(in srgb, var(--accent) 8%, rgba(255, 255, 255, 0.04));
+}
+
+.media-source-panel div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.media-source-panel small,
+.media-source-panel span {
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.media-source-panel strong {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 0.9rem;
+  font-weight: 950;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.media-source-panel.status-ready span {
+  color: var(--accent);
+}
+
+.media-source-panel.status-warning span,
+.media-source-panel.status-partial span {
+  color: #ffcf57;
+}
+
+.media-source-panel.status-error span {
+  color: #ff6f91;
 }
 
 .dj-lineup-panel {
