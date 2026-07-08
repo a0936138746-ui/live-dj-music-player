@@ -78,3 +78,35 @@ npm run media:check -- --base-url=https://your-cdn.example.com
 ```powershell
 npm run media:check -- --cloud
 ```
+
+## 產生雲端上傳清單
+
+產生必要 DJ 影片的上傳清單：
+
+```powershell
+npm run media:manifest
+```
+
+清單會輸出到：
+
+```text
+.local-media/dj-media-manifest.json
+```
+
+如果要一起列出本機資料夾裡多出的 MP4：
+
+```powershell
+npm run media:manifest -- --all
+```
+
+如果要在清單中直接產生雲端 URL：
+
+```powershell
+npm run media:manifest -- --base-url=https://your-cdn.example.com
+```
+
+上傳到雲端時，請讓每個檔案的雲端路徑符合清單裡的 `targetPath`。例如 `targetPath` 是 `assets/dj-soft.mp4`，雲端 URL 就要是：
+
+```text
+https://your-cdn.example.com/assets/dj-soft.mp4
+```

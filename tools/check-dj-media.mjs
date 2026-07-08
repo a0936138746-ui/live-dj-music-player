@@ -1,19 +1,9 @@
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
+import { requiredDjVideos } from "./dj-media-config.mjs";
 
 const root = process.cwd();
 const localAssetsDir = path.join(root, ".local-media", "assets");
-const requiredDjVideos = [
-  "dj-soft.mp4",
-  "dj-soft-01.mp4",
-  "dj-groove.mp4",
-  "dj-groove-01.mp4",
-  "dj-peak.mp4",
-  "dj-peak-01.mp4",
-  "dj-rock-live.mp4",
-  "dj-rock-live-01.mp4",
-  "dj-guest-01.mp4",
-];
 
 const args = process.argv.slice(2);
 const explicitBaseUrl = args.find((arg) => arg.startsWith("--base-url="))?.slice("--base-url=".length);

@@ -1,13 +1,15 @@
 import { spawn } from "node:child_process";
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, renameSync, rmdirSync, rmSync, symlinkSync } from "node:fs";
+import { tmpdir } from "node:os";
 import path from "node:path";
 
 const root = process.cwd();
 const assetsDir = path.join(root, "public", "assets");
 const cacheDir = path.join(root, ".local-media-cache", "assets");
-const stagingRoot = path.join(root, ".next-build-staging");
 const dryRun = process.argv.includes("--dry-run");
 const shouldUseStagedBuild = !process.env.VERCEL && process.env.CI !== "true";
+let activeStagingRoot = "";
+let activeStageRoot = "";
 
 function getLocalVideos() {
   if (!existsSync(assetsDir)) return [];
@@ -84,42 +86,52 @@ function shouldCopyToStage(source) {
 }
 
 function createStagedBuildRoot() {
-  rmSync(stagingRoot, { recursive: true, force: true });
-  mkdirSync(stagingRoot, { recursive: true });
-
-  const stageRoot = mkdtempSync(path.join(stagingRoot, "build-"));
+  activeStagingRoot = mkdtempSync(path.join(tmpdir(), "live-dj-build-"));
+  activeStageRoot = path.join(activeStagingRoot, "project");
+  mkdirSync(activeStageRoot, { recursive: true });
 
   for (const entry of readdirSync(root, { withFileTypes: true })) {
     const source = path.join(root, entry.name);
     if (!shouldCopyToStage(source)) continue;
 
-    cpSync(source, path.join(stageRoot, entry.name), {
+    cpSync(source, path.join(activeStageRoot, entry.name), {
       filter: shouldCopyToStage,
       recursive: true,
     });
   }
 
-  symlinkSync(path.join(root, "node_modules"), path.join(stageRoot, "node_modules"), "junction");
+  symlinkSync(path.join(root, "node_modules"), path.join(activeStageRoot, "node_modules"), "junction");
 
-  return stageRoot;
+  return activeStageRoot;
+}
+
+function isInside(parent, child) {
+  const relativePath = path.relative(parent, child);
+  return Boolean(relativePath) && !relativePath.startsWith("..") && !path.isAbsolute(relativePath);
 }
 
 function cleanupStagedBuild() {
+  if (!activeStagingRoot) return;
+
+  const tempRoot = path.resolve(tmpdir());
+  const stagingRoot = path.resolve(activeStagingRoot);
+  if (!isInside(tempRoot, stagingRoot)) return;
+
   try {
-    const [stageFolder] = existsSync(stagingRoot) ? readdirSync(stagingRoot) : [];
-    if (stageFolder) {
-      const stagedNodeModules = path.join(stagingRoot, stageFolder, "node_modules");
-      if (existsSync(stagedNodeModules)) rmdirSync(stagedNodeModules);
-    }
+    const stagedNodeModules = path.join(activeStageRoot, "node_modules");
+    if (existsSync(stagedNodeModules)) rmdirSync(stagedNodeModules);
   } catch {
     // The staging folder is disposable; the next build will recreate it if cleanup is blocked.
   }
 
   try {
-    rmSync(stagingRoot, { recursive: true, force: true });
+    rmSync(activeStagingRoot, { recursive: true, force: true });
   } catch {
     // The next build can replace the staging folder if Windows keeps a handle briefly.
   }
+
+  activeStagingRoot = "";
+  activeStageRoot = "";
 }
 
 function runNextBuild(buildRoot = root) {
