@@ -6,6 +6,7 @@
     "dev": "next dev",
     "build": "node tools/build-without-local-media.mjs",
     "media:check": "node tools/check-dj-media.mjs",
+    "media:github-release": "node tools/upload-dj-media-github-release.mjs",
     "media:manifest": "node tools/create-dj-media-manifest.mjs",
     "typecheck": "tsc --noEmit",
     "start": "next start",

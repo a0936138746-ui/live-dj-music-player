@@ -92,11 +92,21 @@ DEPLOYMENT.md
 
 ```text
 NEXT_PUBLIC_MEDIA_BASE_URL=https://your-cdn-domain.com
+NEXT_PUBLIC_MEDIA_PATH_MODE=assets
 NEXT_PUBLIC_ENABLE_SINGER_FRAMES=false
 NEXT_PUBLIC_ENABLE_DJ_VARIANTS=false
 ```
 
-`NEXT_PUBLIC_MEDIA_BASE_URL` 留空時會繼續使用本機 `public`。小歌手圖序列與備用 DJ 影片搬到雲端前，兩個啟用開關先維持 `false`。
+`NEXT_PUBLIC_MEDIA_BASE_URL` 留空時會繼續使用本機 `public`。一般 CDN 使用 `NEXT_PUBLIC_MEDIA_PATH_MODE=assets`；GitHub Release 使用 `NEXT_PUBLIC_MEDIA_PATH_MODE=flat`。
+
+如果要把 9 支必要 DJ 影片上傳到 GitHub Release，可以先登入 GitHub CLI，再執行：
+
+```powershell
+gh auth login -h github.com
+npm run media:github-release
+```
+
+小歌手圖序列與備用 DJ 影片搬到雲端前，兩個啟用開關先維持 `false`。
 
 ## 加入真正音樂
 

@@ -120,22 +120,30 @@ const singerDanceCycleMultipliers: Record<SingerDanceProfile, number> = {
 };
 
 const mediaBaseUrl = (process.env.NEXT_PUBLIC_MEDIA_BASE_URL || "").replace(/\/$/, "");
+const mediaPathMode = process.env.NEXT_PUBLIC_MEDIA_PATH_MODE === "flat" ? "flat" : "assets";
 const isProductionBuild = process.env.NODE_ENV === "production";
 const isCloudMediaConfigured = mediaBaseUrl.length > 0;
 const isProductionMediaMissing = isProductionBuild && !isCloudMediaConfigured;
 const djVariantAssetsEnabled = process.env.NEXT_PUBLIC_ENABLE_DJ_VARIANTS === "true";
 const singerFrameAssetsEnabled = process.env.NEXT_PUBLIC_ENABLE_SINGER_FRAMES === "true";
 
+function getRemoteMediaUrl(src: string) {
+  const normalizedSrc = src.startsWith("/") ? src : `/${src}`;
+  const mediaPath = mediaPathMode === "flat" ? normalizedSrc.split("/").at(-1) : normalizedSrc.replace(/^\//, "");
+
+  return `${mediaBaseUrl}/${mediaPath}`;
+}
+
 function getMediaUrl(src: string) {
   if (/^(blob:|data:|https?:\/\/)/i.test(src)) return src;
-  if (!mediaBaseUrl) return src;
+  if (!mediaBaseUrl || mediaPathMode === "flat") return src;
 
-  return `${mediaBaseUrl}${src.startsWith("/") ? src : `/${src}`}`;
+  return getRemoteMediaUrl(src);
 }
 
 function getDjMediaUrl(src: string) {
   if (/^(blob:|data:|https?:\/\/)/i.test(src)) return src;
-  if (mediaBaseUrl) return getMediaUrl(src);
+  if (mediaBaseUrl) return getRemoteMediaUrl(src);
 
   return `/api/local-media${src.startsWith("/") ? src : `/${src}`}`;
 }

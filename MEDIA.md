@@ -105,8 +105,37 @@ npm run media:manifest -- --all
 npm run media:manifest -- --base-url=https://your-cdn.example.com
 ```
 
+GitHub Release 的影片是平放檔名，不會有 `assets/` 資料夾。要產生 GitHub Release 格式的清單：
+
+```powershell
+npm run media:manifest -- --base-url=https://github.com/YOUR_NAME/YOUR_REPO/releases/download/dj-media-v1 --flat
+```
+
 上傳到雲端時，請讓每個檔案的雲端路徑符合清單裡的 `targetPath`。例如 `targetPath` 是 `assets/dj-soft.mp4`，雲端 URL 就要是：
 
 ```text
 https://your-cdn.example.com/assets/dj-soft.mp4
+```
+
+## 用 GitHub Release 放 DJ 影片
+
+如果不想先開 Cloudflare R2 或 Supabase，可以用 GitHub Release 當第一版媒體庫。
+
+先確認 GitHub CLI 已登入：
+
+```powershell
+gh auth login -h github.com
+```
+
+登入後執行：
+
+```powershell
+npm run media:github-release
+```
+
+完成後，工具會印出 Vercel 要設定的環境變數：
+
+```text
+NEXT_PUBLIC_MEDIA_BASE_URL=https://github.com/YOUR_NAME/YOUR_REPO/releases/download/dj-media-v1
+NEXT_PUBLIC_MEDIA_PATH_MODE=flat
 ```

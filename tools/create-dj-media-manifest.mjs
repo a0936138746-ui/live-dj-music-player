@@ -8,6 +8,7 @@ const manifestPath = path.join(root, ".local-media", "dj-media-manifest.json");
 
 const args = process.argv.slice(2);
 const includeExtras = args.includes("--all");
+const pathMode = args.includes("--flat") || process.env.NEXT_PUBLIC_MEDIA_PATH_MODE === "flat" ? "flat" : "assets";
 const explicitBaseUrl = args.find((arg) => arg.startsWith("--base-url="))?.slice("--base-url=".length);
 const baseUrl = (explicitBaseUrl || process.env.NEXT_PUBLIC_MEDIA_BASE_URL || "").replace(/\/$/, "");
 
@@ -30,7 +31,7 @@ function getLocalVideos() {
 function createEntry(file) {
   const absolutePath = path.join(localAssetsDir, file);
   const sizeBytes = statSync(absolutePath).size;
-  const targetPath = `assets/${file}`;
+  const targetPath = pathMode === "flat" ? file : `assets/${file}`;
 
   return {
     file,
@@ -55,7 +56,8 @@ const manifest = {
   baseUrl,
   includeExtras,
   localAssetsDir: ".local-media/assets",
-  uploadRoot: "assets",
+  pathMode,
+  uploadRoot: pathMode === "flat" ? "." : "assets",
   requiredCount: requiredDjVideos.length,
   fileCount: files.length,
   totalSizeBytes: totalSize,
@@ -71,6 +73,7 @@ console.log("");
 console.log("DJ media upload manifest");
 console.log(`Output: ${toPosixPath(path.relative(root, manifestPath))}`);
 console.log(`Mode: ${includeExtras ? "required + extra local videos" : "required videos only"}`);
+console.log(`Path mode: ${pathMode}`);
 console.log(`Files: ${files.length} (${formatBytes(totalSize)})`);
 
 if (baseUrl) {

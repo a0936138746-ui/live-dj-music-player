@@ -61,6 +61,20 @@ public/music/
 
 ```text
 NEXT_PUBLIC_MEDIA_BASE_URL=https://your-cdn-domain.com
+NEXT_PUBLIC_MEDIA_PATH_MODE=assets
+```
+
+如果使用 GitHub Release 放 DJ 影片，請改成：
+
+```text
+NEXT_PUBLIC_MEDIA_BASE_URL=https://github.com/YOUR_NAME/YOUR_REPO/releases/download/dj-media-v1
+NEXT_PUBLIC_MEDIA_PATH_MODE=flat
+```
+
+建立 GitHub Release 媒體庫可以用：
+
+```powershell
+npm run media:github-release
 ```
 
 小歌手圖序列搬到雲端後，再加：
