@@ -1261,6 +1261,14 @@ export default function Home() {
     let isCancelled = false;
     setDidCheckDjVideos(false);
 
+    if (isCloudMediaConfigured) {
+      setAvailableDjVideos(Object.fromEntries(plannedDjVideoSlots.map((source) => [source, true])));
+      setDidCheckDjVideos(true);
+      return () => {
+        isCancelled = true;
+      };
+    }
+
     Promise.all(
       plannedDjVideoSlots.map(async (source) => {
         try {
