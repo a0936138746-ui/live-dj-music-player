@@ -124,7 +124,6 @@ const mediaPathMode = process.env.NEXT_PUBLIC_MEDIA_PATH_MODE === "flat" ? "flat
 const isProductionBuild = process.env.NODE_ENV === "production";
 const isCloudMediaConfigured = mediaBaseUrl.length > 0;
 const isProductionMediaMissing = isProductionBuild && !isCloudMediaConfigured;
-const djVariantAssetsEnabled = process.env.NEXT_PUBLIC_ENABLE_DJ_VARIANTS === "true";
 const singerFrameAssetsEnabled = process.env.NEXT_PUBLIC_ENABLE_SINGER_FRAMES === "true";
 
 function getRemoteMediaUrl(src: string) {
@@ -196,13 +195,23 @@ const djVisual = {
   guestSlot: "/assets/dj-guest-01.mp4",
 };
 
-const djVideoPools = {
-  [djVisual.softSlot]: djVariantAssetsEnabled ? [djVisual.softSlot, djVisual.softAlt] : [djVisual.softSlot],
-  [djVisual.grooveSlot]: djVariantAssetsEnabled ? [djVisual.grooveSlot, djVisual.grooveAlt] : [djVisual.grooveSlot],
-  [djVisual.peakSlot]: djVariantAssetsEnabled ? [djVisual.peakSlot, djVisual.peakAlt] : [djVisual.peakSlot],
-  [djVisual.rockSlot]: djVariantAssetsEnabled ? [djVisual.rockSlot, djVisual.rockAlt] : [djVisual.rockSlot],
-  [djVisual.guestSlot]: [djVisual.guestSlot],
+const blackDjVideoMap: Record<string, string> = {
+  [djVisual.idleVideo]: djVisual.softSlot,
+  [djVisual.softSlot]: djVisual.softSlot,
+  [djVisual.grooveSlot]: djVisual.grooveSlot,
+  [djVisual.peakSlot]: djVisual.peakSlot,
+  [djVisual.rockSlot]: djVisual.rockSlot,
+  [djVisual.guestSlot]: djVisual.grooveSlot,
 };
+const redDjVideoMap: Record<string, string> = {
+  [djVisual.idleVideo]: djVisual.softAlt,
+  [djVisual.softSlot]: djVisual.softAlt,
+  [djVisual.grooveSlot]: djVisual.grooveAlt,
+  [djVisual.peakSlot]: djVisual.peakAlt,
+  [djVisual.rockSlot]: djVisual.rockAlt,
+  [djVisual.guestSlot]: djVisual.guestSlot,
+};
+const blackDjVideoSources = [djVisual.softSlot, djVisual.grooveSlot, djVisual.peakSlot, djVisual.rockSlot];
 const redDjVideoSources = [
   djVisual.softAlt,
   djVisual.grooveAlt,
@@ -237,7 +246,7 @@ const stageLedBars = Array.from({ length: 18 }, (_, index) => index);
 const stageLaserBeams = Array.from({ length: 7 }, (_, index) => index);
 const stageFogLayers = Array.from({ length: 3 }, (_, index) => index);
 const stageBurstRings = Array.from({ length: 3 }, (_, index) => index);
-const djVideoSources = [...new Set([...Object.values(djVideoPools).flat(), ...redDjVideoSources])];
+const djVideoSources = [...new Set([...blackDjVideoSources, ...redDjVideoSources])];
 const analysisConfidenceThreshold = 0.22;
 const localSongDbName = "live-dj-local-songs";
 const localSongStoreName = "songs";
@@ -730,39 +739,30 @@ function getDjDirectorScene(song: Song, progress: number, isPlaying: boolean, ha
 }
 
 function getPerformerDjVideo(video: string, performer: DjPerformer) {
-  if (performer === "black") return video;
-
-  const redVideoMap: Record<string, string> = {
-    [djVisual.idleVideo]: djVisual.softAlt,
-    [djVisual.softSlot]: djVisual.softAlt,
-    [djVisual.grooveSlot]: djVisual.grooveAlt,
-    [djVisual.peakSlot]: djVisual.peakAlt,
-    [djVisual.rockSlot]: djVisual.rockAlt,
-  };
-
-  return redVideoMap[video] ?? djVisual.grooveAlt;
+  return performer === "black"
+    ? (blackDjVideoMap[video] ?? djVisual.grooveSlot)
+    : (redDjVideoMap[video] ?? djVisual.grooveAlt);
 }
 
-function resolveDjVideo(video: string, availableVideos: Record<string, boolean>, variantSeed: number) {
-  const pool = djVideoPools[video] ?? [video];
-  const availablePool = pool.filter((source) => availableVideos[source]);
+function resolvePerformerDjVideo(
+  video: string,
+  performer: DjPerformer,
+  availableVideos: Record<string, boolean>,
+  fallbackPerformer: DjPerformer = performer,
+) {
+  const preferredVideo = getPerformerDjVideo(video, performer);
+  if (availableVideos[preferredVideo]) return preferredVideo;
 
-  if (availablePool.length > 0) {
-    return availablePool[Math.abs(variantSeed) % availablePool.length];
-  }
+  const fallbackVideo = getPerformerDjVideo(video, fallbackPerformer);
+  if (availableVideos[fallbackVideo]) return fallbackVideo;
 
-  return djVisual.softSlot;
+  return availableVideos[djVisual.softSlot] ? djVisual.softSlot : preferredVideo;
 }
 
-function resolveOptionalDjVideo(video: string, availableVideos: Record<string, boolean>, variantSeed: number) {
-  const pool = djVideoPools[video] ?? [video];
-  const availablePool = pool.filter((source) => availableVideos[source]);
+function resolveOptionalPerformerDjVideo(video: string, performer: DjPerformer, availableVideos: Record<string, boolean>) {
+  const preferredVideo = getPerformerDjVideo(video, performer);
 
-  if (availablePool.length > 0) {
-    return availablePool[Math.abs(variantSeed) % availablePool.length];
-  }
-
-  return undefined;
+  return availableVideos[preferredVideo] ? preferredVideo : undefined;
 }
 
 function getEffectiveSong(
@@ -981,12 +981,13 @@ export default function Home() {
   const djSong = getEffectiveSong(song, activeAnalysis, moodOverride, bpmOverride);
   const djState = getDjState(djSong, progress, isPlaying);
   const djEnergy = djState.label;
-  const blackDjVideo = resolveDjVideo(djState.video, playableDjVideos, activeIndex);
-  const redDjVideo =
-    resolveOptionalDjVideo(getPerformerDjVideo(djState.video, "red"), playableDjVideos, activeIndex + 1) ??
-    resolveOptionalDjVideo(djVisual.guestSlot, playableDjVideos, activeIndex + 1);
+  const blackDjVideo = resolvePerformerDjVideo(djState.video, "black", playableDjVideos);
+  const redDjVideo = resolveOptionalPerformerDjVideo(djState.video, "red", playableDjVideos);
   const directorScene = getDjDirectorScene(djSong, progress, isPlaying, Boolean(redDjVideo));
-  const djVideo = directorScene.mainPerformer === "red" && redDjVideo ? redDjVideo : blackDjVideo;
+  const djVideo =
+    directorScene.mainPerformer === "red"
+      ? resolvePerformerDjVideo(djState.video, "red", playableDjVideos, "black")
+      : blackDjVideo;
   const mainDjName = djPerformerNames[directorScene.mainPerformer];
   const availableDjVideoCount = plannedDjVideoSlots.filter((source) => playableDjVideos[source]).length;
   const failedDjVideoCount = plannedDjVideoSlots.filter((source) => failedDjVideos[source]).length;
@@ -1017,11 +1018,17 @@ export default function Home() {
     : availableDjVideoCount === 0
       ? "目前沒有偵測到 DJ 影片，請確認 .local-media/assets 或雲端媒體來源。"
       : `有 ${failedDjVideoCount} 支 DJ 影片載入失敗，系統會先避開它們並保留舞台待機畫面。`;
+  const requestedSupportDjVideo =
+    directorScene.support?.performer === "red"
+      ? redDjVideo
+      : directorScene.support
+        ? resolveOptionalPerformerDjVideo(djState.video, "black", playableDjVideos)
+        : undefined;
   const liveSupportDjScene =
-    directorScene.support && (directorScene.support.performer !== "red" || redDjVideo)
+    directorScene.support && requestedSupportDjVideo && requestedSupportDjVideo !== djVideo
       ? {
           ...directorScene.support,
-          video: directorScene.support.performer === "red" ? (redDjVideo as string) : blackDjVideo,
+          video: requestedSupportDjVideo,
         }
       : undefined;
   const supportDjVideo = renderedGuestDjScene?.video;
