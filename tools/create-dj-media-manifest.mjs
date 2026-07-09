@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { requiredDjVideos } from "./dj-media-config.mjs";
+import { knownDjVideos, optionalDjVideos, requiredDjVideos } from "./dj-media-config.mjs";
 
 const root = process.cwd();
 const localAssetsDir = path.join(root, ".local-media", "assets");
@@ -35,6 +35,8 @@ function createEntry(file) {
 
   return {
     file,
+    known: knownDjVideos.includes(file),
+    optional: optionalDjVideos.includes(file),
     required: requiredDjVideos.includes(file),
     localPath: toPosixPath(path.relative(root, absolutePath)),
     targetPath,
@@ -56,6 +58,7 @@ const manifest = {
   baseUrl,
   includeExtras,
   localAssetsDir: ".local-media/assets",
+  optionalCount: optionalDjVideos.length,
   pathMode,
   uploadRoot: pathMode === "flat" ? "." : "assets",
   requiredCount: requiredDjVideos.length,

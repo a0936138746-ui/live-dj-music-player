@@ -65,7 +65,7 @@ type VisualMode =
 type SingerDanceProfile = "soft" | "groove" | "hype" | "drop";
 type PlaylistFilter = "all" | Song["mood"];
 type ScanStatusTone = "auto" | "manual" | "fallback" | "pending" | "scanning";
-type DjPerformer = "black" | "red";
+type DjPerformer = "black" | "red" | "violet" | "gold" | "silver";
 type GuestDjStatus = "entering" | "live" | "exiting" | "encore";
 type GuestDjCue = {
   label: string;
@@ -78,6 +78,13 @@ type GuestDjScene = GuestDjCue & {
 type DjDirectorScene = {
   mainPerformer: DjPerformer;
   support?: GuestDjCue;
+};
+type DjVideoMap = Record<string, string>;
+type DjPerformerConfig = {
+  accent: string;
+  name: string;
+  shortName: string;
+  videos: DjVideoMap;
 };
 
 type StoredLocalSong = Omit<Song, "audioSrc"> & {
@@ -195,33 +202,86 @@ const djVisual = {
   guestSlot: "/assets/dj-guest-01.mp4",
 };
 
-const blackDjVideoMap: Record<string, string> = {
-  [djVisual.idleVideo]: djVisual.softSlot,
-  [djVisual.softSlot]: djVisual.softSlot,
-  [djVisual.grooveSlot]: djVisual.grooveSlot,
-  [djVisual.peakSlot]: djVisual.peakSlot,
-  [djVisual.rockSlot]: djVisual.rockSlot,
-  [djVisual.guestSlot]: djVisual.grooveSlot,
-};
-const redDjVideoMap: Record<string, string> = {
-  [djVisual.idleVideo]: djVisual.softAlt,
-  [djVisual.softSlot]: djVisual.softAlt,
-  [djVisual.grooveSlot]: djVisual.grooveAlt,
-  [djVisual.peakSlot]: djVisual.peakAlt,
-  [djVisual.rockSlot]: djVisual.rockAlt,
-  [djVisual.guestSlot]: djVisual.guestSlot,
-};
-const blackDjVideoSources = [djVisual.softSlot, djVisual.grooveSlot, djVisual.peakSlot, djVisual.rockSlot];
-const redDjVideoSources = [
-  djVisual.softAlt,
-  djVisual.grooveAlt,
-  djVisual.peakAlt,
-  djVisual.rockAlt,
-  djVisual.guestSlot,
-];
-const djPerformerNames: Record<DjPerformer, string> = {
-  black: "BLACK DJ",
-  red: "RED DJ",
+function createPerformerVideoMap(videos: {
+  groove: string;
+  guest?: string;
+  peak: string;
+  rock: string;
+  soft: string;
+}): DjVideoMap {
+  return {
+    [djVisual.idleVideo]: videos.soft,
+    [djVisual.softSlot]: videos.soft,
+    [djVisual.grooveSlot]: videos.groove,
+    [djVisual.peakSlot]: videos.peak,
+    [djVisual.rockSlot]: videos.rock,
+    [djVisual.guestSlot]: videos.guest ?? videos.groove,
+  };
+}
+
+const primaryDjPerformer: DjPerformer = "black";
+const extraDjPerformers: DjPerformer[] = ["violet", "gold", "silver"];
+const featureDjPerformers: DjPerformer[] = ["red", ...extraDjPerformers];
+const djPerformerConfigs: Record<DjPerformer, DjPerformerConfig> = {
+  black: {
+    accent: "#25f3ff",
+    name: "BLACK DJ",
+    shortName: "BLACK",
+    videos: createPerformerVideoMap({
+      groove: djVisual.grooveSlot,
+      peak: djVisual.peakSlot,
+      rock: djVisual.rockSlot,
+      soft: djVisual.softSlot,
+    }),
+  },
+  red: {
+    accent: "#ff4f8b",
+    name: "RED DJ",
+    shortName: "RED",
+    videos: createPerformerVideoMap({
+      groove: djVisual.grooveAlt,
+      guest: djVisual.guestSlot,
+      peak: djVisual.peakAlt,
+      rock: djVisual.rockAlt,
+      soft: djVisual.softAlt,
+    }),
+  },
+  violet: {
+    accent: "#b774ff",
+    name: "VIOLET DJ",
+    shortName: "VIOLET",
+    videos: createPerformerVideoMap({
+      groove: "/assets/dj-violet-groove.mp4",
+      guest: "/assets/dj-violet-guest.mp4",
+      peak: "/assets/dj-violet-peak.mp4",
+      rock: "/assets/dj-violet-rock-live.mp4",
+      soft: "/assets/dj-violet-soft.mp4",
+    }),
+  },
+  gold: {
+    accent: "#ffcf57",
+    name: "GOLD DJ",
+    shortName: "GOLD",
+    videos: createPerformerVideoMap({
+      groove: "/assets/dj-gold-groove.mp4",
+      guest: "/assets/dj-gold-guest.mp4",
+      peak: "/assets/dj-gold-peak.mp4",
+      rock: "/assets/dj-gold-rock-live.mp4",
+      soft: "/assets/dj-gold-soft.mp4",
+    }),
+  },
+  silver: {
+    accent: "#9fe7ff",
+    name: "SILVER DJ",
+    shortName: "SILVER",
+    videos: createPerformerVideoMap({
+      groove: "/assets/dj-silver-groove.mp4",
+      guest: "/assets/dj-silver-guest.mp4",
+      peak: "/assets/dj-silver-peak.mp4",
+      rock: "/assets/dj-silver-rock-live.mp4",
+      soft: "/assets/dj-silver-soft.mp4",
+    }),
+  },
 };
 
 const ageOptions = ["全年齡", "13+", "16+", "18+"];
@@ -246,7 +306,16 @@ const stageLedBars = Array.from({ length: 18 }, (_, index) => index);
 const stageLaserBeams = Array.from({ length: 7 }, (_, index) => index);
 const stageFogLayers = Array.from({ length: 3 }, (_, index) => index);
 const stageBurstRings = Array.from({ length: 3 }, (_, index) => index);
-const djVideoSources = [...new Set([...blackDjVideoSources, ...redDjVideoSources])];
+const requiredDjVideoSlots = [
+  ...new Set([
+    ...Object.values(djPerformerConfigs.black.videos),
+    ...Object.values(djPerformerConfigs.red.videos),
+  ]),
+];
+const optionalDjVideoSlots = [
+  ...new Set(extraDjPerformers.flatMap((performer) => Object.values(djPerformerConfigs[performer].videos))),
+];
+const djVideoSources = [...new Set([...requiredDjVideoSlots, ...optionalDjVideoSlots])];
 const analysisConfidenceThreshold = 0.22;
 const localSongDbName = "live-dj-local-songs";
 const localSongStoreName = "songs";
@@ -682,11 +751,36 @@ function getTimedStatus(start: number, progress: number, status: Exclude<GuestDj
   return progress - start < 2.2 ? "entering" : status;
 }
 
-function getDjDirectorScene(song: Song, progress: number, isPlaying: boolean, hasRedDj: boolean): DjDirectorScene {
-  if (!isPlaying || !hasRedDj) {
-    return { mainPerformer: "black" };
+function getAvailableFeaturePerformers(video: string, availableVideos: Record<string, boolean>) {
+  return featureDjPerformers.filter((performer) => Boolean(resolveOptionalPerformerDjVideo(video, performer, availableVideos)));
+}
+
+function pickFeatureDjPerformer(
+  video: string,
+  availableVideos: Record<string, boolean>,
+  activeIndex: number,
+  progress: number,
+) {
+  const availablePerformers = getAvailableFeaturePerformers(video, availableVideos);
+
+  if (availablePerformers.length === 0) return undefined;
+
+  const phraseIndex = Math.floor(progress / 24);
+  return availablePerformers[(activeIndex + phraseIndex) % availablePerformers.length];
+}
+
+function getDjDirectorScene(
+  song: Song,
+  progress: number,
+  isPlaying: boolean,
+  featurePerformer?: DjPerformer,
+): DjDirectorScene {
+  if (!isPlaying || !featurePerformer) {
+    return { mainPerformer: primaryDjPerformer };
   }
 
+  const featureName = djPerformerConfigs[featurePerformer].shortName;
+  const primaryName = djPerformerConfigs[primaryDjPerformer].shortName;
   const isPeakTrack = song.mood === "rock" || song.bpm >= 132;
   const isSoftTrack = song.mood === "ballad" || song.bpm < 112;
   const directorWindows: Array<{
@@ -699,32 +793,130 @@ function getDjDirectorScene(song: Song, progress: number, isPlaying: boolean, ha
   }> =
     isPeakTrack
       ? [
-          { end: 22, label: "RED DJ CUE", mainPerformer: "black", start: 10, status: "live", support: "red" },
-          { end: 40, label: "BLACK DJ CAM", mainPerformer: "red", start: 24, status: "live", support: "black" },
-          { end: 58, label: "DJ BATTLE", mainPerformer: "black", start: 48, status: "live", support: "red" },
-          { end: 74, label: "BLACK DJ CAM", mainPerformer: "red", start: 60, status: "live", support: "black" },
-          { end: 88, label: "RED ENCORE", mainPerformer: "black", start: 80, status: "encore", support: "red" },
+          {
+            end: 22,
+            label: `${featureName} CUE`,
+            mainPerformer: primaryDjPerformer,
+            start: 10,
+            status: "live",
+            support: featurePerformer,
+          },
+          {
+            end: 40,
+            label: `${primaryName} CAM`,
+            mainPerformer: featurePerformer,
+            start: 24,
+            status: "live",
+            support: primaryDjPerformer,
+          },
+          {
+            end: 58,
+            label: "DJ BATTLE",
+            mainPerformer: primaryDjPerformer,
+            start: 48,
+            status: "live",
+            support: featurePerformer,
+          },
+          {
+            end: 74,
+            label: `${primaryName} CAM`,
+            mainPerformer: featurePerformer,
+            start: 60,
+            status: "live",
+            support: primaryDjPerformer,
+          },
+          {
+            end: 88,
+            label: `${featureName} ENCORE`,
+            mainPerformer: primaryDjPerformer,
+            start: 80,
+            status: "encore",
+            support: featurePerformer,
+          },
         ]
       : isSoftTrack
         ? [
-            { end: 36, label: "RED SOFT LIVE", mainPerformer: "black", start: 24, status: "live", support: "red" },
-            { end: 58, label: "BLACK SOFT CAM", mainPerformer: "red", start: 42, status: "live", support: "black" },
-            { end: 78, label: "SOFT DUET", mainPerformer: "black", start: 66, status: "encore", support: "red" },
+            {
+              end: 36,
+              label: `${featureName} SOFT LIVE`,
+              mainPerformer: primaryDjPerformer,
+              start: 24,
+              status: "live",
+              support: featurePerformer,
+            },
+            {
+              end: 58,
+              label: `${primaryName} SOFT CAM`,
+              mainPerformer: featurePerformer,
+              start: 42,
+              status: "live",
+              support: primaryDjPerformer,
+            },
+            {
+              end: 78,
+              label: "SOFT DUET",
+              mainPerformer: primaryDjPerformer,
+              start: 66,
+              status: "encore",
+              support: featurePerformer,
+            },
           ]
         : song.bpm >= 122
         ? [
-            { end: 30, label: "RED DJ CUE", mainPerformer: "black", start: 18, status: "live", support: "red" },
-            { end: 54, label: "BLACK DJ CAM", mainPerformer: "red", start: 40, status: "live", support: "black" },
-            { end: 76, label: "RED ENCORE", mainPerformer: "black", start: 64, status: "encore", support: "red" },
+            {
+              end: 30,
+              label: `${featureName} CUE`,
+              mainPerformer: primaryDjPerformer,
+              start: 18,
+              status: "live",
+              support: featurePerformer,
+            },
+            {
+              end: 54,
+              label: `${primaryName} CAM`,
+              mainPerformer: featurePerformer,
+              start: 40,
+              status: "live",
+              support: primaryDjPerformer,
+            },
+            {
+              end: 76,
+              label: `${featureName} ENCORE`,
+              mainPerformer: primaryDjPerformer,
+              start: 64,
+              status: "encore",
+              support: featurePerformer,
+            },
           ]
         : [
-            { end: 38, label: "RED DJ CUE", mainPerformer: "black", start: 28, status: "live", support: "red" },
-            { end: 68, label: "BLACK DJ CAM", mainPerformer: "red", start: 56, status: "live", support: "black" },
-            { end: 84, label: "FINAL CALL", mainPerformer: "black", start: 76, status: "encore", support: "red" },
+            {
+              end: 38,
+              label: `${featureName} CUE`,
+              mainPerformer: primaryDjPerformer,
+              start: 28,
+              status: "live",
+              support: featurePerformer,
+            },
+            {
+              end: 68,
+              label: `${primaryName} CAM`,
+              mainPerformer: featurePerformer,
+              start: 56,
+              status: "live",
+              support: primaryDjPerformer,
+            },
+            {
+              end: 84,
+              label: "FINAL CALL",
+              mainPerformer: primaryDjPerformer,
+              start: 76,
+              status: "encore",
+              support: featurePerformer,
+            },
           ];
   const activeWindow = directorWindows.find((window) => progress >= window.start && progress < window.end);
 
-  if (!activeWindow) return { mainPerformer: "black" };
+  if (!activeWindow) return { mainPerformer: primaryDjPerformer };
 
   return {
     mainPerformer: activeWindow.mainPerformer,
@@ -739,9 +931,9 @@ function getDjDirectorScene(song: Song, progress: number, isPlaying: boolean, ha
 }
 
 function getPerformerDjVideo(video: string, performer: DjPerformer) {
-  return performer === "black"
-    ? (blackDjVideoMap[video] ?? djVisual.grooveSlot)
-    : (redDjVideoMap[video] ?? djVisual.grooveAlt);
+  const config = djPerformerConfigs[performer];
+
+  return config.videos[video] ?? config.videos[djVisual.grooveSlot] ?? djVisual.grooveSlot;
 }
 
 function resolvePerformerDjVideo(
@@ -981,16 +1173,18 @@ export default function Home() {
   const djSong = getEffectiveSong(song, activeAnalysis, moodOverride, bpmOverride);
   const djState = getDjState(djSong, progress, isPlaying);
   const djEnergy = djState.label;
-  const blackDjVideo = resolvePerformerDjVideo(djState.video, "black", playableDjVideos);
-  const redDjVideo = resolveOptionalPerformerDjVideo(djState.video, "red", playableDjVideos);
-  const directorScene = getDjDirectorScene(djSong, progress, isPlaying, Boolean(redDjVideo));
-  const djVideo =
-    directorScene.mainPerformer === "red"
-      ? resolvePerformerDjVideo(djState.video, "red", playableDjVideos, "black")
-      : blackDjVideo;
-  const mainDjName = djPerformerNames[directorScene.mainPerformer];
-  const availableDjVideoCount = plannedDjVideoSlots.filter((source) => playableDjVideos[source]).length;
-  const failedDjVideoCount = plannedDjVideoSlots.filter((source) => failedDjVideos[source]).length;
+  const featureDjPerformer = pickFeatureDjPerformer(djState.video, playableDjVideos, activeIndex, progress);
+  const directorScene = getDjDirectorScene(djSong, progress, isPlaying, featureDjPerformer);
+  const djVideo = resolvePerformerDjVideo(
+    djState.video,
+    directorScene.mainPerformer,
+    playableDjVideos,
+    primaryDjPerformer,
+  );
+  const mainDjName = djPerformerConfigs[directorScene.mainPerformer].name;
+  const availableRequiredDjVideoCount = requiredDjVideoSlots.filter((source) => playableDjVideos[source]).length;
+  const failedRequiredDjVideoCount = requiredDjVideoSlots.filter((source) => failedDjVideos[source]).length;
+  const availableOptionalDjVideoCount = optionalDjVideoSlots.filter((source) => playableDjVideos[source]).length;
   const isActiveDjVideoAvailable = Boolean(playableDjVideos[djVideo]);
   const shouldRenderMainDjVideo = !didCheckDjVideos || isActiveDjVideoAvailable;
   const shouldShowDjFallback = didCheckDjVideos && !isActiveDjVideoAvailable;
@@ -999,31 +1193,30 @@ export default function Home() {
     ? "pending"
     : isProductionMediaMissing
       ? "warning"
-      : availableDjVideoCount === 0
+      : availableRequiredDjVideoCount === 0
         ? "error"
-        : availableDjVideoCount < plannedDjVideoSlots.length
+        : availableRequiredDjVideoCount < requiredDjVideoSlots.length
           ? "partial"
           : "ready";
   const djMediaStatusLabel = !didCheckDjVideos
     ? "檢查中"
     : isProductionMediaMissing
       ? "雲端未設定"
-      : failedDjVideoCount > 0
-        ? `${availableDjVideoCount}/${plannedDjVideoSlots.length} 可播 / ${failedDjVideoCount} 失敗`
-      : `${availableDjVideoCount}/${plannedDjVideoSlots.length} 已連線`;
+      : failedRequiredDjVideoCount > 0
+        ? `${availableRequiredDjVideoCount}/${requiredDjVideoSlots.length} 必備 / ${failedRequiredDjVideoCount} 失敗`
+      : availableOptionalDjVideoCount > 0
+        ? `${availableRequiredDjVideoCount}/${requiredDjVideoSlots.length} 必備 + ${availableOptionalDjVideoCount} 客座`
+        : `${availableRequiredDjVideoCount}/${requiredDjVideoSlots.length} 必備已連線`;
   const shouldShowDjMediaNotice =
-    didCheckDjVideos && (isProductionMediaMissing || availableDjVideoCount === 0 || failedDjVideoCount > 0);
+    didCheckDjVideos &&
+    (isProductionMediaMissing || availableRequiredDjVideoCount === 0 || failedRequiredDjVideoCount > 0);
   const djMediaNoticeText = isProductionMediaMissing
     ? "分享或上線版本需要設定 NEXT_PUBLIC_MEDIA_BASE_URL，否則觀眾看不到 DJ 影片。"
-    : availableDjVideoCount === 0
+    : availableRequiredDjVideoCount === 0
       ? "目前沒有偵測到 DJ 影片，請確認 .local-media/assets 或雲端媒體來源。"
-      : `有 ${failedDjVideoCount} 支 DJ 影片載入失敗，系統會先避開它們並保留舞台待機畫面。`;
+      : `有 ${failedRequiredDjVideoCount} 支必備 DJ 影片載入失敗，系統會先避開它們並保留舞台待機畫面。`;
   const requestedSupportDjVideo =
-    directorScene.support?.performer === "red"
-      ? redDjVideo
-      : directorScene.support
-        ? resolveOptionalPerformerDjVideo(djState.video, "black", playableDjVideos)
-        : undefined;
+    directorScene.support && resolveOptionalPerformerDjVideo(djState.video, directorScene.support.performer, playableDjVideos);
   const liveSupportDjScene =
     directorScene.support && requestedSupportDjVideo && requestedSupportDjVideo !== djVideo
       ? {
@@ -1032,12 +1225,12 @@ export default function Home() {
         }
       : undefined;
   const supportDjVideo = renderedGuestDjScene?.video;
-  const supportDjName = renderedGuestDjScene ? djPerformerNames[renderedGuestDjScene.performer] : "STANDBY";
+  const supportDjName = renderedGuestDjScene ? djPerformerConfigs[renderedGuestDjScene.performer].name : "STANDBY";
   const directorModeLabel = !isPlaying
     ? "待機"
     : renderedGuestDjScene
-      ? directorScene.mainPerformer === "red"
-        ? "紅髮主位"
+      ? directorScene.mainPerformer !== primaryDjPerformer
+        ? `${djPerformerConfigs[directorScene.mainPerformer].shortName} 主位`
         : renderedGuestDjScene.status === "encore"
           ? "雙 DJ 收尾"
           : "雙 DJ 同框"
@@ -1305,9 +1498,49 @@ export default function Home() {
     let isCancelled = false;
     setDidCheckDjVideos(false);
 
+    const probeDjVideo = (source: string) =>
+      new Promise<readonly [string, boolean]>((resolve) => {
+        const video = document.createElement("video");
+        let isSettled = false;
+        const timer = window.setTimeout(() => finish(false), 5200);
+
+        function finish(isReady: boolean) {
+          if (isSettled) return;
+
+          isSettled = true;
+          window.clearTimeout(timer);
+          video.removeAttribute("src");
+          video.load();
+          resolve([source, isReady] as const);
+        }
+
+        video.muted = true;
+        video.playsInline = true;
+        video.preload = "metadata";
+        video.addEventListener("loadedmetadata", () => finish(true), { once: true });
+        video.addEventListener("canplay", () => finish(true), { once: true });
+        video.addEventListener("error", () => finish(false), { once: true });
+        video.src = getDjMediaUrl(source);
+        video.load();
+      });
+
     if (isCloudMediaConfigured) {
-      setAvailableDjVideos(Object.fromEntries(plannedDjVideoSlots.map((source) => [source, true])));
+      setAvailableDjVideos(
+        Object.fromEntries([
+          ...requiredDjVideoSlots.map((source) => [source, true] as const),
+          ...optionalDjVideoSlots.map((source) => [source, false] as const),
+        ]),
+      );
       setDidCheckDjVideos(true);
+
+      Promise.all(optionalDjVideoSlots.map(probeDjVideo)).then((entries) => {
+        if (isCancelled) return;
+        setAvailableDjVideos((current) => ({
+          ...current,
+          ...Object.fromEntries(entries),
+        }));
+      });
+
       return () => {
         isCancelled = true;
       };

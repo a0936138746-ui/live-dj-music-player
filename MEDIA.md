@@ -59,6 +59,35 @@ dj-guest-01.mp4
 
 其他備用或舊影片可以留在 `.local-media/assets`，但上線分享時，只要雲端有上面這些檔名，主要 DJ 播放就能正常工作。
 
+## 新增更多 DJ 的命名規則
+
+目前程式已預留 3 組可選客座 DJ。這些影片不是必備檔案，沒有放也不會讓網站錯誤；只要本機或雲端偵測到，就會加入輪番上鏡。
+
+```text
+VIOLET DJ
+dj-violet-soft.mp4
+dj-violet-groove.mp4
+dj-violet-peak.mp4
+dj-violet-rock-live.mp4
+dj-violet-guest.mp4
+
+GOLD DJ
+dj-gold-soft.mp4
+dj-gold-groove.mp4
+dj-gold-peak.mp4
+dj-gold-rock-live.mp4
+dj-gold-guest.mp4
+
+SILVER DJ
+dj-silver-soft.mp4
+dj-silver-groove.mp4
+dj-silver-peak.mp4
+dj-silver-rock-live.mp4
+dj-silver-guest.mp4
+```
+
+每位 DJ 最少可以先做 4 支：`soft`、`groove`、`peak`、`rock-live`。`guest` 是客座鏡頭專用，可晚一點補。
+
 ## 檢查影片是否齊全
 
 檢查本機 `.local-media/assets`：
