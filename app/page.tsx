@@ -243,7 +243,44 @@ const localSongDbName = "live-dj-local-songs";
 const localSongStoreName = "songs";
 const playerPreferenceStorageKey = "live-dj-player-preferences";
 
-const defaultSongs: Song[] = [];
+const defaultSongs: Song[] = [
+  {
+    id: "demo-neon-ballad",
+    title: "Neon Rain Vocal",
+    artist: "Live DJ Demo",
+    language: "Demo",
+    mood: "ballad",
+    bpm: 94,
+    duration: 168,
+    minAge: 0,
+    accent: "#ffbf6b",
+    lyric: ["雨聲落在霓虹裡", "慢慢推開舞台光", "讓主 DJ 先帶你進場"],
+  },
+  {
+    id: "demo-city-groove",
+    title: "City Pulse Groove",
+    artist: "Live DJ Demo",
+    language: "Demo",
+    mood: "tech",
+    bpm: 124,
+    duration: 154,
+    minAge: 0,
+    accent: "#25f3ff",
+    lyric: ["節奏開始排列", "光束貼著鼓點移動", "AI 舞台進入中速律動"],
+  },
+  {
+    id: "demo-rock-peak",
+    title: "Rock Deck Ignite",
+    artist: "Live DJ Demo",
+    language: "Demo",
+    mood: "rock",
+    bpm: 138,
+    duration: 146,
+    minAge: 0,
+    accent: "#ff4f8b",
+    lyric: ["吉他牆推上來", "雙 DJ 準備交鋒", "副歌爆點把舞台點亮"],
+  },
+];
 const emptySong: Song = {
   id: "empty",
   title: "尚未加入歌曲",
@@ -1456,12 +1493,12 @@ export default function Home() {
     const timer = window.setInterval(() => {
       setProgress((current) => {
         if (current >= 100) return 0;
-        return current + 0.45;
+        return current + (240 / Math.max(30, trackDuration)) / 10;
       });
     }, 240);
 
     return () => window.clearInterval(timer);
-  }, [hasAudio, isPlaying]);
+  }, [hasAudio, isPlaying, trackDuration]);
 
   useEffect(() => {
     const audio = audioRef.current;
