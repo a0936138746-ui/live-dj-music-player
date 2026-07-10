@@ -321,44 +321,6 @@ const localSongDbName = "live-dj-local-songs";
 const localSongStoreName = "songs";
 const playerPreferenceStorageKey = "live-dj-player-preferences";
 
-const defaultSongs: Song[] = [
-  {
-    id: "demo-neon-ballad",
-    title: "Neon Rain Vocal",
-    artist: "Live DJ Demo",
-    language: "Demo",
-    mood: "ballad",
-    bpm: 94,
-    duration: 168,
-    minAge: 0,
-    accent: "#ffbf6b",
-    lyric: ["雨聲落在霓虹裡", "慢慢推開舞台光", "讓主 DJ 先帶你進場"],
-  },
-  {
-    id: "demo-city-groove",
-    title: "City Pulse Groove",
-    artist: "Live DJ Demo",
-    language: "Demo",
-    mood: "tech",
-    bpm: 124,
-    duration: 154,
-    minAge: 0,
-    accent: "#25f3ff",
-    lyric: ["節奏開始排列", "光束貼著鼓點移動", "AI 舞台進入中速律動"],
-  },
-  {
-    id: "demo-rock-peak",
-    title: "Rock Deck Ignite",
-    artist: "Live DJ Demo",
-    language: "Demo",
-    mood: "rock",
-    bpm: 138,
-    duration: 146,
-    minAge: 0,
-    accent: "#ff4f8b",
-    lyric: ["吉他牆推上來", "雙 DJ 準備交鋒", "副歌爆點把舞台點亮"],
-  },
-];
 const emptySong: Song = {
   id: "empty",
   title: "尚未加入歌曲",
@@ -1131,7 +1093,7 @@ export default function Home() {
   const [age, setAge] = useState(ageOptions[0]);
   const [playlistFilter, setPlaylistFilter] = useState<PlaylistFilter>("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [playlist, setPlaylist] = useState<Song[]>(defaultSongs);
+  const [playlist, setPlaylist] = useState<Song[]>([]);
   const [shelvedSongs, setShelvedSongs] = useState<Song[]>([]);
   const [availableDjVideos, setAvailableDjVideos] = useState<Record<string, boolean>>({});
   const [failedDjVideos, setFailedDjVideos] = useState<Record<string, boolean>>({});
@@ -2241,7 +2203,7 @@ export default function Home() {
     });
 
     audioRef.current?.pause();
-    setPlaylist(defaultSongs);
+    setPlaylist([]);
     setShelvedSongs([]);
     setActiveIndex(0);
     setProgress(0);
@@ -2249,7 +2211,7 @@ export default function Home() {
     setAnalysisById({});
     setMoodOverrides({});
     setBpmOverrides({});
-    setImportNotice("");
+    setImportNotice("歌單與下架區已全部清除");
     setIsDraggingFiles(false);
     setAnalysisStatus("SCAN READY");
     void clearStoredLocalSongs();
@@ -2958,69 +2920,77 @@ export default function Home() {
               <span>{directorModeLabel}</span>
             </div>
 
-            <div className={`media-source-panel status-${djMediaStatusTone}`}>
-              <div>
-                <small>DJ 媒體來源</small>
-                <strong>{djMediaSourceLabel}</strong>
-              </div>
-              <span>{djMediaStatusLabel}</span>
-            </div>
-
-            <div className="mapping-panel" aria-label="DJ 歌曲判斷">
-              <div className="mapping-panel-head">
-                <span>DJ 判斷</span>
+            <details className="now-settings-details">
+              <summary>
+                <span>DJ 設定與素材</span>
                 <strong className={`mapping-status status-${currentScanStatus.tone}`}>{currentScanStatus.label}</strong>
-              </div>
-              <div className="mapping-readout">
-                <span>
-                  <small>來源</small>
-                  <strong>{mappingSourceLabel}</strong>
-                </span>
-                <span>
-                  <small>信心</small>
-                  <strong>{mappingConfidenceLabel}</strong>
-                </span>
-              </div>
-
-              <details className="mapping-tuner">
-                <summary>手動校正</summary>
-              <div className="bpm-editor" aria-label="快速調整 BPM">
-                <span>BPM 微調</span>
-                <div>
-                  <button disabled={!hasSongs} onClick={() => setCurrentBpmOverride(djSong.bpm - 1)} type="button">
-                    -1
-                  </button>
-                  <strong>{djSong.bpm}</strong>
-                  <button disabled={!hasSongs} onClick={() => setCurrentBpmOverride(djSong.bpm + 1)} type="button">
-                    +1
-                  </button>
+              </summary>
+              <div className="now-settings-content">
+                <div className={`media-source-panel status-${djMediaStatusTone}`}>
+                  <div>
+                    <small>DJ 媒體來源</small>
+                    <strong>{djMediaSourceLabel}</strong>
+                  </div>
+                  <span>{djMediaStatusLabel}</span>
                 </div>
-              </div>
 
-              <div className="style-corrector" aria-label="快速修正歌曲風格">
-                <span>風格修正</span>
-                <div className="style-buttons">
-                  {moodOverrideOptions.map((option) => (
-                    <button
-                      aria-pressed={moodOverride === option.value}
-                      className={moodOverride === option.value ? "active" : ""}
-                      disabled={!hasSongs}
-                      key={option.value}
-                      onClick={() => setCurrentMoodOverride(option.value)}
-                      type="button"
-                    >
-                      {option.label}
+                <div className="mapping-panel" aria-label="DJ 歌曲判斷">
+                  <div className="mapping-panel-head">
+                    <span>歌曲判斷</span>
+                    <strong className={`mapping-status status-${currentScanStatus.tone}`}>{currentScanStatus.label}</strong>
+                  </div>
+                  <div className="mapping-readout">
+                    <span>
+                      <small>來源</small>
+                      <strong>{mappingSourceLabel}</strong>
+                    </span>
+                    <span>
+                      <small>信心</small>
+                      <strong>{mappingConfidenceLabel}</strong>
+                    </span>
+                  </div>
+
+                  <details className="mapping-tuner">
+                    <summary>手動校正</summary>
+                    <div className="bpm-editor" aria-label="快速調整 BPM">
+                      <span>BPM 微調</span>
+                      <div>
+                        <button disabled={!hasSongs} onClick={() => setCurrentBpmOverride(djSong.bpm - 1)} type="button">
+                          -1
+                        </button>
+                        <strong>{djSong.bpm}</strong>
+                        <button disabled={!hasSongs} onClick={() => setCurrentBpmOverride(djSong.bpm + 1)} type="button">
+                          +1
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="style-corrector" aria-label="快速修正歌曲風格">
+                      <span>風格修正</span>
+                      <div className="style-buttons">
+                        {moodOverrideOptions.map((option) => (
+                          <button
+                            aria-pressed={moodOverride === option.value}
+                            className={moodOverride === option.value ? "active" : ""}
+                            disabled={!hasSongs}
+                            key={option.value}
+                            onClick={() => setCurrentMoodOverride(option.value)}
+                            type="button"
+                          >
+                            {option.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <button className="auto-map-button" disabled={!hasSongs} onClick={resetCurrentAutoMapping} type="button">
+                      <RotateCcw size={15} />
+                      回到 AUTO
                     </button>
-                  ))}
+                  </details>
                 </div>
               </div>
-
-              <button className="auto-map-button" disabled={!hasSongs} onClick={resetCurrentAutoMapping} type="button">
-                <RotateCcw size={15} />
-                回到 AUTO
-              </button>
-              </details>
-            </div>
+            </details>
 
             <div className="now-actions">
               <button className="cover-download-button" disabled={!hasSongs} onClick={downloadCurrentCover} type="button">
@@ -3206,6 +3176,13 @@ export default function Home() {
           </div>
 
           <div className="transport-console">
+            <div className="transport-track" aria-live="polite">
+              <span>{isPlaying ? "NOW PLAYING" : "READY"}</span>
+              <strong>{song.title}</strong>
+              <small>
+                {song.artist} · {getMoodLabel(djSong.mood)} · {djSong.bpm} BPM
+              </small>
+            </div>
             <div className="transport-main">
               <div className="progress-row">
                 <span>{formatTime(elapsedTime)}</span>
