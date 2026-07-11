@@ -88,6 +88,7 @@ type DjPerformerConfig = {
 };
 
 type StoredLocalSong = Omit<Song, "audioSrc"> & {
+  analysis?: AudioAnalysis;
   bpmOverride?: number;
   file: Blob;
   fileName: string;
@@ -328,7 +329,7 @@ const emptySong: Song = {
   language: "自選",
   mood: "tech",
   bpm: 122,
-  duration: 210,
+  duration: 0,
   minAge: 0,
   accent: "#25f3ff",
   lyric: ["點選上方的加入歌曲", "匯入你的音樂後就會出現在歌單", "DJ 會依歌曲風格開始演出"],
@@ -952,21 +953,19 @@ function getEffectiveSong(
 
 function getScanStatus({
   analysis,
-  analysisStatus,
   bpmOverride,
-  isActive,
+  isScanning,
   moodOverride,
 }: {
   analysis: AudioAnalysis | undefined;
-  analysisStatus: string;
   bpmOverride: number | undefined;
-  isActive: boolean;
+  isScanning: boolean;
   moodOverride: Song["mood"] | "auto";
 }): { label: string; tone: ScanStatusTone } {
   if (moodOverride !== "auto" || typeof bpmOverride === "number") return { label: "手動", tone: "manual" };
   if (analysis && analysis.confidence >= analysisConfidenceThreshold) return { label: "AUTO", tone: "auto" };
   if (analysis) return { label: "低信心", tone: "fallback" };
-  if (isActive && analysisStatus === "SCANNING") return { label: "掃描中", tone: "scanning" };
+  if (isScanning) return { label: "掃描中", tone: "scanning" };
   return { label: "待掃描", tone: "pending" };
 }
 
@@ -1072,6 +1071,7 @@ export default function Home() {
   const [audioStatus, setAudioStatus] = useState("READY");
   const [analysisById, setAnalysisById] = useState<Record<string, AudioAnalysis>>({});
   const [analysisStatus, setAnalysisStatus] = useState("SCAN READY");
+  const [scanningSongIds, setScanningSongIds] = useState<Record<string, boolean>>({});
   const [moodOverrides, setMoodOverrides] = useState<Record<string, Song["mood"] | "auto">>({});
   const [bpmOverrides, setBpmOverrides] = useState<Record<string, number>>({});
   const [importNotice, setImportNotice] = useState("");
@@ -1110,6 +1110,7 @@ export default function Home() {
   const lastLiveMetricUpdateRef = useRef(0);
   const lastVisualModeBeatRef = useRef(-1);
   const didLoadPreferencesRef = useRef(false);
+  const analysisGenerationRef = useRef(0);
   const playableDjVideos = useMemo(() => {
     return Object.fromEntries(
       plannedDjVideoSlots.map((source) => [source, Boolean(availableDjVideos[source]) && !failedDjVideos[source]]),
@@ -1127,9 +1128,8 @@ export default function Home() {
   const analysisSource = usableAnalysis ? "AUTO" : activeAnalysis ? "FALLBACK" : "PENDING";
   const currentScanStatus = getScanStatus({
     analysis: activeAnalysis,
-    analysisStatus,
     bpmOverride,
-    isActive: true,
+    isScanning: Boolean(scanningSongIds[song.id]),
     moodOverride,
   });
   const djSong = getEffectiveSong(song, activeAnalysis, moodOverride, bpmOverride);
@@ -1264,15 +1264,14 @@ export default function Home() {
         ),
         scanStatus: getScanStatus({
           analysis: analysisById[item.id],
-          analysisStatus,
           bpmOverride: bpmOverrides[item.id],
-          isActive: index === activeIndex,
+          isScanning: Boolean(scanningSongIds[item.id]),
           moodOverride: moodOverrides[item.id] ?? "auto",
         }),
         index,
         item,
       })),
-    [activeIndex, analysisById, analysisStatus, bpmOverrides, moodOverrides, playlist],
+    [analysisById, bpmOverrides, moodOverrides, playlist, scanningSongIds],
   );
   const filteredPlaylistRows = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -1546,6 +1545,7 @@ export default function Home() {
 
   useEffect(() => {
     return () => {
+      analysisGenerationRef.current += 1;
       stopLiveAudioLoop();
       audioSourceRef.current?.disconnect();
       analyserRef.current?.disconnect();
@@ -1619,9 +1619,18 @@ export default function Home() {
         const restoredEntries = storedSongs.map((storedSong) => {
           const audioSrc = URL.createObjectURL(storedSong.file);
           objectUrls.push(audioSrc);
-          const { bpmOverride, file: _file, fileName: _fileName, isShelved, moodOverride, ...songData } = storedSong;
+          const {
+            analysis,
+            bpmOverride,
+            file: _file,
+            fileName: _fileName,
+            isShelved,
+            moodOverride,
+            ...songData
+          } = storedSong;
 
           return {
+            analysis,
             bpmOverride,
             isShelved: Boolean(isShelved),
             moodOverride,
@@ -1643,6 +1652,11 @@ export default function Home() {
             .filter((item) => item.moodOverride && item.moodOverride !== "auto")
             .map((item) => [item.song.id, item.moodOverride as Song["mood"]]),
         );
+        const restoredAnalysisById = Object.fromEntries(
+          restoredEntries
+            .filter((item) => item.analysis)
+            .map((item) => [item.song.id, item.analysis as AudioAnalysis]),
+        );
 
         setPlaylist((current) => {
           const currentIds = new Set(current.map((item) => item.id));
@@ -1656,6 +1670,10 @@ export default function Home() {
         });
         setBpmOverrides((current) => ({
           ...restoredBpmOverrides,
+          ...current,
+        }));
+        setAnalysisById((current) => ({
+          ...restoredAnalysisById,
           ...current,
         }));
         setMoodOverrides((current) => ({
@@ -1781,35 +1799,51 @@ export default function Home() {
 
   useEffect(() => {
     setTrackDuration(song.duration);
-    setAudioStatus(songAudioSrc ? "LOADING" : "DEMO");
-  }, [song, songAudioSrc]);
+    setAudioStatus(songAudioSrc ? "LOADING" : hasSongs ? "DEMO" : "WAITING");
+  }, [hasSongs, song, songAudioSrc]);
 
-  useEffect(() => {
-    if (!songAudioSrc || analysisById[song.id]) return;
+  async function analyzeSong(songId: string, audioSource: string) {
+    const generation = analysisGenerationRef.current;
 
-    let isCancelled = false;
+    setScanningSongIds((current) => ({
+      ...current,
+      [songId]: true,
+    }));
     setAnalysisStatus("SCANNING");
 
-    analyzeAudioFile(songAudioSrc)
-      .then((analysis) => {
-        if (isCancelled) return;
-        setAnalysisById((current) => ({
-          ...current,
-          [song.id]: analysis,
-        }));
-        setAnalysisStatus(
-          analysis.confidence >= analysisConfidenceThreshold ? "AUTO MAPPED" : "LOW CONFIDENCE",
-        );
-      })
-      .catch(() => {
-        if (isCancelled) return;
-        setAnalysisStatus("MANUAL DATA");
-      });
+    try {
+      const analysis = await analyzeAudioFile(audioSource);
+      if (generation !== analysisGenerationRef.current) return false;
 
-    return () => {
-      isCancelled = true;
-    };
-  }, [analysisById, song, songAudioSrc]);
+      setAnalysisById((current) => ({
+        ...current,
+        [songId]: analysis,
+      }));
+      setAnalysisStatus(
+        analysis.confidence >= analysisConfidenceThreshold ? "AUTO MAPPED" : "LOW CONFIDENCE",
+      );
+      await patchStoredLocalSong(songId, { analysis }).catch(() => undefined);
+      return true;
+    } catch {
+      if (generation === analysisGenerationRef.current) {
+        setAnalysisStatus("MANUAL DATA");
+      }
+      return false;
+    } finally {
+      if (generation === analysisGenerationRef.current) {
+        setScanningSongIds((current) => {
+          const { [songId]: _finished, ...remaining } = current;
+          return remaining;
+        });
+      }
+    }
+  }
+
+  useEffect(() => {
+    if (!songAudioSrc || analysisById[song.id] || scanningSongIds[song.id]) return;
+
+    void analyzeSong(song.id, songAudioSrc);
+  }, [analysisById, scanningSongIds, song.id, songAudioSrc]);
 
   useEffect(() => {
     if (!isPlaying) return;
@@ -2196,6 +2230,8 @@ export default function Home() {
     const confirmed = window.confirm("確定要全部清除嗎？這會移除目前歌單、下架區與已儲存的本機匯入歌曲。");
     if (!confirmed) return;
 
+    analysisGenerationRef.current += 1;
+
     [...playlist, ...shelvedSongs].forEach((item) => {
       if (item.audioSrc?.startsWith("blob:")) {
         URL.revokeObjectURL(item.audioSrc);
@@ -2209,6 +2245,7 @@ export default function Home() {
     setProgress(0);
     setIsPlaying(false);
     setAnalysisById({});
+    setScanningSongIds({});
     setMoodOverrides({});
     setBpmOverrides({});
     setImportNotice("歌單與下架區已全部清除");
@@ -2345,22 +2382,51 @@ export default function Home() {
         return [...next, songItem];
       }, current),
     );
+    setScanningSongIds((current) =>
+      newSongs.reduce<Record<string, boolean>>(
+        (next, item) => ({
+          ...next,
+          [item.id]: true,
+        }),
+        current,
+      ),
+    );
     setActiveIndex(firstNewIndex);
     setProgress(0);
     setIsPlaying(true);
     setImportNotice(
-      newSongs.length === 1 ? `已加入：${newSongs[0].title}` : `已加入 ${newSongs.length} 首歌曲`,
+      newSongs.length === 1
+        ? `已加入：${newSongs[0].title}，正在分析`
+        : `已加入 ${newSongs.length} 首歌曲，正在依序分析`,
     );
 
-    newSongs.forEach((item) => {
-      const { audioSrc: _audioSrc, sourceFile, ...storedSong } = item;
-      void saveStoredLocalSong({
-        ...storedSong,
-        file: sourceFile,
-        fileName: sourceFile.name,
-        isShelved: false,
-      }).catch(() => undefined);
-    });
+    const importGeneration = analysisGenerationRef.current;
+
+    void (async () => {
+      let analyzedCount = 0;
+
+      for (const item of newSongs) {
+        if (importGeneration !== analysisGenerationRef.current) return;
+
+        const { audioSrc, sourceFile, ...storedSong } = item;
+        await saveStoredLocalSong({
+          ...storedSong,
+          file: sourceFile,
+          fileName: sourceFile.name,
+          isShelved: false,
+        }).catch(() => undefined);
+
+        if (await analyzeSong(item.id, audioSrc)) analyzedCount += 1;
+      }
+
+      if (importGeneration !== analysisGenerationRef.current) return;
+
+      setImportNotice(
+        analyzedCount === newSongs.length
+          ? `${newSongs.length} 首歌曲分析完成`
+          : `${analyzedCount}/${newSongs.length} 首完成分析，其餘可手動校正`,
+      );
+    })();
   }
 
   function handleLocalSongChange(event: React.ChangeEvent<HTMLInputElement>) {
@@ -2885,25 +2951,29 @@ export default function Home() {
             <p className="kicker">Now Playing</p>
             <h2>{song.title}</h2>
             <p>{song.artist}</p>
-            <div className="now-cover" style={getCoverStyle(djSong)} aria-label="自動產生封面">
-              <span>{getCoverLetters(song.title)}</span>
+            <div
+              className="now-cover"
+              style={getCoverStyle(djSong)}
+              aria-label={hasSongs ? "自動產生封面" : "等待加入歌曲"}
+            >
+              <span>{hasSongs ? getCoverLetters(song.title) : "DJ"}</span>
             </div>
 
             <div className="now-quick-stats" aria-label="目前歌曲狀態">
               <span>
-                <strong>{djSong.bpm}</strong>
+                <strong>{hasSongs ? djSong.bpm : "--"}</strong>
                 <small>BPM</small>
               </span>
               <span>
-                <strong>{getMoodLabel(djSong.mood)}</strong>
+                <strong>{hasSongs ? getMoodLabel(djSong.mood) : "待分析"}</strong>
                 <small>風格</small>
               </span>
               <span>
-                <strong>{getBpmBand(djSong.bpm)}</strong>
+                <strong>{hasSongs ? getBpmBand(djSong.bpm) : "--"}</strong>
                 <small>速度</small>
               </span>
               <span className={`now-dj-stat performer-${directorScene.mainPerformer}`}>
-                <strong>{mainDjName.replace(" DJ", "")}</strong>
+                <strong>{hasSongs ? mainDjName.replace(" DJ", "") : "待機"}</strong>
                 <small>MAIN DJ</small>
               </span>
             </div>
@@ -2923,7 +2993,9 @@ export default function Home() {
             <details className="now-settings-details">
               <summary>
                 <span>DJ 設定與素材</span>
-                <strong className={`mapping-status status-${currentScanStatus.tone}`}>{currentScanStatus.label}</strong>
+                <strong className={`mapping-status status-${currentScanStatus.tone}`}>
+                  {hasSongs ? currentScanStatus.label : "等待歌曲"}
+                </strong>
               </summary>
               <div className="now-settings-content">
                 <div className={`media-source-panel status-${djMediaStatusTone}`}>
@@ -3015,18 +3087,20 @@ export default function Home() {
               </div>
             ) : null}
 
-            <details className="now-ai-details">
-              <summary>AI 接歌狀態</summary>
-              <div className="now-ai-summary">
-                <strong>{djState.cue}</strong>
-                <span>{energyLabel}</span>
-              </div>
-              <div className="ai-plan compact">
-                {aiDjPlan.map((step) => (
-                  <span key={step}>{step}</span>
-                ))}
-              </div>
-            </details>
+            {hasSongs ? (
+              <details className="now-ai-details">
+                <summary>AI 接歌狀態</summary>
+                <div className="now-ai-summary">
+                  <strong>{djState.cue}</strong>
+                  <span>{energyLabel}</span>
+                </div>
+                <div className="ai-plan compact">
+                  {aiDjPlan.map((step) => (
+                    <span key={step}>{step}</span>
+                  ))}
+                </div>
+              </details>
+            ) : null}
           </aside>
         </section>
 
@@ -3086,9 +3160,7 @@ export default function Home() {
           <div className="control-focus-strip" aria-label="播放摘要">
             <div>
               <small>Now</small>
-              <strong>
-                {getMoodLabel(djSong.mood)} · {djSong.bpm} BPM
-              </strong>
+              <strong>{hasSongs ? `${getMoodLabel(djSong.mood)} · ${djSong.bpm} BPM` : "等待加入歌曲"}</strong>
             </div>
             <div className="focus-progress">
               <span style={{ "--progress": progressLabel } as React.CSSProperties}>
@@ -3100,21 +3172,23 @@ export default function Home() {
             </div>
             <div>
               <small>Main DJ</small>
-              <strong>{mainDjName.replace(" DJ", "")} 主位</strong>
+              <strong>{hasSongs ? `${mainDjName.replace(" DJ", "")} 主位` : "舞台待機"}</strong>
             </div>
           </div>
 
           <div className="control-dashboard">
             <div className="now-status">
-              <span>{getMoodLabel(djSong.mood)}</span>
+              <span>{hasSongs ? getMoodLabel(djSong.mood) : "待機"}</span>
               <p>
-                {djSong.bpm} BPM / {getBpmBand(djSong.bpm)} / 剩餘 {formatTime(remainingTime)}
+                {hasSongs
+                  ? `${djSong.bpm} BPM / ${getBpmBand(djSong.bpm)} / 剩餘 ${formatTime(remainingTime)}`
+                  : "加入歌曲後開始分析與演出"}
               </p>
             </div>
 
             <div className="dj-cue" aria-label="DJ 互動提示">
-              <span>{djState.cue}</span>
-              <small>{energyLabel}</small>
+              <span>{hasSongs ? djState.cue : "等待音樂"}</span>
+              <small>{hasSongs ? energyLabel : "STANDBY"}</small>
             </div>
 
             {autoNextSong && autoNextDjSong ? (
@@ -3134,38 +3208,40 @@ export default function Home() {
             )}
           </div>
 
-          <details className="advanced-panel">
-            <summary>進階資訊與風格修正</summary>
-            <div className="playback-stats" aria-label="播放資訊">
-              <span>{getMoodLabel(djSong.mood)}</span>
-              <span>{djSong.bpm} BPM</span>
-              <span>{isPlaying ? djEnergy : "READY"}</span>
-              <span>{song.language}</span>
-              <span>{audioStatus}</span>
-              <span>{playableDjVideos[djState.video] ? "新 DJ" : "備用 DJ"}</span>
-            </div>
+          {hasSongs ? (
+            <details className="advanced-panel">
+              <summary>進階資訊與風格修正</summary>
+              <div className="playback-stats" aria-label="播放資訊">
+                <span>{getMoodLabel(djSong.mood)}</span>
+                <span>{djSong.bpm} BPM</span>
+                <span>{isPlaying ? djEnergy : "READY"}</span>
+                <span>{song.language}</span>
+                <span>{audioStatus}</span>
+                <span>{playableDjVideos[djState.video] ? "新 DJ" : "備用 DJ"}</span>
+              </div>
 
-            <div className="analysis-row" aria-label="自動分檢">
-              <span>{analysisStatus}</span>
-              <span className={`analysis-source source-${analysisSource.toLowerCase()}`}>{analysisSource}</span>
-              <span>
-                {activeAnalysis
-                  ? `${getMoodLabel(activeAnalysis.mood)} / ${activeAnalysis.bpm} BPM / confidence ${Math.round(
-                      activeAnalysis.confidence * 100,
-                    )}% / energy ${activeAnalysis.energy.toFixed(3)}`
-                  : "waiting for local audio scan"}
-              </span>
-              <span>{mappingSourceLabel}</span>
-            </div>
-
-            <div className={`mode-timeline mode-count-${modeTimeline.length}`} aria-label="DJ 模式時間軸">
-              {modeTimeline.map((mode) => (
-                <span className={mode.active ? "active" : ""} key={mode.label}>
-                  {mode.label}
+              <div className="analysis-row" aria-label="自動分檢">
+                <span>{analysisStatus}</span>
+                <span className={`analysis-source source-${analysisSource.toLowerCase()}`}>{analysisSource}</span>
+                <span>
+                  {activeAnalysis
+                    ? `${getMoodLabel(activeAnalysis.mood)} / ${activeAnalysis.bpm} BPM / confidence ${Math.round(
+                        activeAnalysis.confidence * 100,
+                      )}% / energy ${activeAnalysis.energy.toFixed(3)}`
+                    : "waiting for local audio scan"}
                 </span>
-              ))}
-            </div>
-          </details>
+                <span>{mappingSourceLabel}</span>
+              </div>
+
+              <div className={`mode-timeline mode-count-${modeTimeline.length}`} aria-label="DJ 模式時間軸">
+                {modeTimeline.map((mode) => (
+                  <span className={mode.active ? "active" : ""} key={mode.label}>
+                    {mode.label}
+                  </span>
+                ))}
+              </div>
+            </details>
+          ) : null}
 
           <div className="lyrics-strip" aria-label="歌詞">
             {visibleLyrics.map(({ index, line }) => (
@@ -3177,10 +3253,12 @@ export default function Home() {
 
           <div className="transport-console">
             <div className="transport-track" aria-live="polite">
-              <span>{isPlaying ? "NOW PLAYING" : "READY"}</span>
+              <span>{hasSongs ? (isPlaying ? "NOW PLAYING" : "READY") : "ADD MUSIC"}</span>
               <strong>{song.title}</strong>
               <small>
-                {song.artist} · {getMoodLabel(djSong.mood)} · {djSong.bpm} BPM
+                {hasSongs
+                  ? `${song.artist} · ${getMoodLabel(djSong.mood)} · ${djSong.bpm} BPM`
+                  : "加入歌曲後自動分析 BPM 與風格"}
               </small>
             </div>
             <div className="transport-main">
