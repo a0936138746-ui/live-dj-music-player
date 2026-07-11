@@ -34,6 +34,7 @@ type Song = {
   minAge: number;
   lyric: string[];
   accent: string;
+  sourceKey?: string;
 };
 
 type AudioAnalysis = {
@@ -94,6 +95,7 @@ type StoredLocalSong = Omit<Song, "audioSrc"> & {
   fileName: string;
   isShelved?: boolean;
   moodOverride?: Song["mood"] | "auto";
+  playlistOrder?: number;
 };
 
 const visualModeLabels: Record<VisualMode, string> = {
@@ -457,6 +459,29 @@ async function patchStoredLocalSong(songId: string, patch: Partial<Omit<StoredLo
         });
       }
     };
+    transaction.onerror = () => reject(transaction.error);
+    transaction.oncomplete = () => {
+      db.close();
+      resolve();
+    };
+  });
+}
+
+async function saveStoredPlaylistOrder(songs: Song[]) {
+  const db = await openLocalSongDb();
+
+  return new Promise<void>((resolve, reject) => {
+    const transaction = db.transaction(localSongStoreName, "readwrite");
+    const store = transaction.objectStore(localSongStoreName);
+
+    songs.forEach((song, playlistOrder) => {
+      const request = store.get(song.id);
+      request.onsuccess = () => {
+        const storedSong = request.result as StoredLocalSong | undefined;
+        if (storedSong) store.put({ ...storedSong, playlistOrder });
+      };
+    });
+
     transaction.onerror = () => reject(transaction.error);
     transaction.oncomplete = () => {
       db.close();
@@ -1028,6 +1053,10 @@ function getCoverSecondaryColor(song: Song) {
 
 function getSafeFileName(name: string) {
   return name.replace(/[\\/:*?"<>|]/g, "").replace(/\s+/g, "-").slice(0, 80) || "song-cover";
+}
+
+function getLocalSongSourceKey(fileName: string, size: number) {
+  return `${fileName.trim().toLowerCase()}::${size}`;
 }
 
 function formatTime(seconds: number) {
@@ -1616,16 +1645,17 @@ export default function Home() {
       .then((storedSongs) => {
         if (isCancelled || storedSongs.length === 0) return;
 
-        const restoredEntries = storedSongs.map((storedSong) => {
+        const restoredEntries = storedSongs.map((storedSong, restoreIndex) => {
           const audioSrc = URL.createObjectURL(storedSong.file);
           objectUrls.push(audioSrc);
           const {
             analysis,
             bpmOverride,
-            file: _file,
-            fileName: _fileName,
+            file,
+            fileName,
             isShelved,
             moodOverride,
+            playlistOrder,
             ...songData
           } = storedSong;
 
@@ -1634,14 +1664,17 @@ export default function Home() {
             bpmOverride,
             isShelved: Boolean(isShelved),
             moodOverride,
+            playlistOrder: playlistOrder ?? restoreIndex,
             song: {
               ...songData,
               audioSrc,
+              sourceKey: songData.sourceKey ?? getLocalSongSourceKey(fileName, file.size),
             },
           };
         });
-        const restoredPlaylist = restoredEntries.filter((item) => !item.isShelved).map((item) => item.song);
-        const restoredShelvedSongs = restoredEntries.filter((item) => item.isShelved).map((item) => item.song);
+        const orderedEntries = [...restoredEntries].sort((first, second) => first.playlistOrder - second.playlistOrder);
+        const restoredPlaylist = orderedEntries.filter((item) => !item.isShelved).map((item) => item.song);
+        const restoredShelvedSongs = orderedEntries.filter((item) => item.isShelved).map((item) => item.song);
         const restoredBpmOverrides = Object.fromEntries(
           restoredEntries
             .filter((item) => typeof item.bpmOverride === "number")
@@ -2173,6 +2206,7 @@ export default function Home() {
     });
 
     setPlaylist(sortedPlaylist);
+    void saveStoredPlaylistOrder(sortedPlaylist).catch(() => undefined);
     setActiveIndex(Math.max(0, sortedPlaylist.findIndex((item) => item.id === activeSongId)));
     setPlaylistFilter("all");
     setSearchQuery("");
@@ -2183,11 +2217,10 @@ export default function Home() {
     const targetIndex = index + direction;
     if (targetIndex < 0 || targetIndex >= playlist.length) return;
 
-    setPlaylist((current) => {
-      const next = [...current];
-      [next[index], next[targetIndex]] = [next[targetIndex], next[index]];
-      return next;
-    });
+    const nextPlaylist = [...playlist];
+    [nextPlaylist[index], nextPlaylist[targetIndex]] = [nextPlaylist[targetIndex], nextPlaylist[index]];
+    setPlaylist(nextPlaylist);
+    void saveStoredPlaylistOrder(nextPlaylist).catch(() => undefined);
 
     if (activeIndex === index) {
       setActiveIndex(targetIndex);
@@ -2200,9 +2233,11 @@ export default function Home() {
     const shelvedSong = playlist[index];
     if (!shelvedSong) return;
 
-    setPlaylist((current) => current.filter((_, itemIndex) => itemIndex !== index));
+    const nextPlaylist = playlist.filter((_, itemIndex) => itemIndex !== index);
+    setPlaylist(nextPlaylist);
     setShelvedSongs((current) => [...current, shelvedSong]);
     void updateStoredLocalSongShelfStatus(shelvedSong.id, true).catch(() => undefined);
+    void saveStoredPlaylistOrder(nextPlaylist).catch(() => undefined);
     settleActiveIndexAfterRemoval(index);
   }
 
@@ -2210,20 +2245,24 @@ export default function Home() {
     const restoredSong = shelvedSongs[index];
     if (!restoredSong) return;
 
+    const nextPlaylist = [...playlist, restoredSong];
     setShelvedSongs((current) => current.filter((_, itemIndex) => itemIndex !== index));
-    setPlaylist((current) => [...current, restoredSong]);
+    setPlaylist(nextPlaylist);
     void updateStoredLocalSongShelfStatus(restoredSong.id, false).catch(() => undefined);
+    void saveStoredPlaylistOrder(nextPlaylist).catch(() => undefined);
   }
 
   function restoreAllShelvedSongs() {
     if (!shelvedSongs.length) return;
 
     const songsToRestore = [...shelvedSongs];
+    const nextPlaylist = [...playlist, ...songsToRestore];
     setShelvedSongs([]);
-    setPlaylist((current) => [...current, ...songsToRestore]);
+    setPlaylist(nextPlaylist);
     songsToRestore.forEach((item) => {
       void updateStoredLocalSongShelfStatus(item.id, false).catch(() => undefined);
     });
+    void saveStoredPlaylistOrder(nextPlaylist).catch(() => undefined);
   }
 
   function clearAllSongs() {
@@ -2297,8 +2336,10 @@ export default function Home() {
     const confirmed = window.confirm(`確定永久刪除「${songToDelete.title}」嗎？`);
     if (!confirmed) return;
 
-    setPlaylist((current) => current.filter((_, itemIndex) => itemIndex !== index));
+    const nextPlaylist = playlist.filter((_, itemIndex) => itemIndex !== index);
+    setPlaylist(nextPlaylist);
     forgetSong(songToDelete);
+    void saveStoredPlaylistOrder(nextPlaylist).catch(() => undefined);
     settleActiveIndexAfterRemoval(index);
   }
 
@@ -2351,7 +2392,26 @@ export default function Home() {
       return;
     }
 
-    const newSongs = audioFiles.map((file, index) => {
+    const knownSourceKeys = new Set(
+      [...playlist, ...shelvedSongs]
+        .map((item) => item.sourceKey)
+        .filter((sourceKey): sourceKey is string => Boolean(sourceKey)),
+    );
+    const uniqueAudioFiles = audioFiles.filter((file) => {
+      const sourceKey = getLocalSongSourceKey(file.name, file.size);
+      if (knownSourceKeys.has(sourceKey)) return false;
+
+      knownSourceKeys.add(sourceKey);
+      return true;
+    });
+    const duplicateCount = audioFiles.length - uniqueAudioFiles.length;
+
+    if (uniqueAudioFiles.length === 0) {
+      setImportNotice(`已略過 ${duplicateCount} 首重複歌曲`);
+      return;
+    }
+
+    const newSongs = uniqueAudioFiles.map((file, index) => {
       const audioSrc = URL.createObjectURL(file);
       const cleanTitle = file.name.replace(/\.[^/.]+$/, "").replace(/[-_]+/g, " ");
       const randomSuffix = Math.random().toString(36).slice(2, 8);
@@ -2371,6 +2431,7 @@ export default function Home() {
         minAge: 0,
         accent: getMoodAccent(guessedMood),
         lyric: ["Local track loaded", "Scanning tempo and energy", "DJ mapping will update"],
+        sourceKey: getLocalSongSourceKey(file.name, file.size),
         sourceFile: file,
       };
     });
@@ -2396,8 +2457,8 @@ export default function Home() {
     setIsPlaying(true);
     setImportNotice(
       newSongs.length === 1
-        ? `已加入：${newSongs[0].title}，正在分析`
-        : `已加入 ${newSongs.length} 首歌曲，正在依序分析`,
+        ? `已加入：${newSongs[0].title}，正在分析${duplicateCount ? `，略過 ${duplicateCount} 首重複` : ""}`
+        : `已加入 ${newSongs.length} 首歌曲，正在依序分析${duplicateCount ? `，略過 ${duplicateCount} 首重複` : ""}`,
     );
 
     const importGeneration = analysisGenerationRef.current;
@@ -2405,7 +2466,7 @@ export default function Home() {
     void (async () => {
       let analyzedCount = 0;
 
-      for (const item of newSongs) {
+      for (const [itemIndex, item] of newSongs.entries()) {
         if (importGeneration !== analysisGenerationRef.current) return;
 
         const { audioSrc, sourceFile, ...storedSong } = item;
@@ -2414,6 +2475,7 @@ export default function Home() {
           file: sourceFile,
           fileName: sourceFile.name,
           isShelved: false,
+          playlistOrder: firstNewIndex + itemIndex,
         }).catch(() => undefined);
 
         if (await analyzeSong(item.id, audioSrc)) analyzedCount += 1;
@@ -2423,8 +2485,10 @@ export default function Home() {
 
       setImportNotice(
         analyzedCount === newSongs.length
-          ? `${newSongs.length} 首歌曲分析完成`
-          : `${analyzedCount}/${newSongs.length} 首完成分析，其餘可手動校正`,
+          ? `${newSongs.length} 首歌曲分析完成${duplicateCount ? `，已略過 ${duplicateCount} 首重複` : ""}`
+          : `${analyzedCount}/${newSongs.length} 首完成分析，其餘可手動校正${
+              duplicateCount ? `，已略過 ${duplicateCount} 首重複` : ""
+            }`,
       );
     })();
   }
