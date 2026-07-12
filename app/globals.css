@@ -1378,7 +1378,12 @@ h1 {
   transform: translateX(-50%);
   transform-origin: center bottom;
   filter: drop-shadow(0 24px 44px rgba(0, 0, 0, 0.58));
-  transition: filter 120ms ease, transform 120ms ease;
+  opacity: 1;
+  transition: filter 120ms ease, opacity 280ms ease, transform 120ms ease;
+}
+
+.dj-motion.is-handoff {
+  opacity: 0.12;
 }
 
 .dj-motion img,

@@ -110,19 +110,19 @@ liveAudioMetrics
 
 目前程式會用 `getDjState` 決定目前需要 soft / groove / peak / rock-live 類型，再用 DJ performer roster 決定哪位 DJ 上主位、哪位支援。
 
-避免重新寫成「固定紅髮或黑髮」；多 DJ 必須走 `DjPerformer` / `djPerformerConfigs` / `pickFeatureDjPerformer` 這套設定。
+避免重新寫成「固定紅髮或黑髮」；多 DJ 必須走 `DjPerformer` / `djPerformerConfigs` / `getDjRotationPlan` 這套設定。
 
 ## DJ 出場編排
 
-每首歌只選定一位特色 DJ，歌曲播放途中不要因進度百分比重新抽選角色。下一首歌再依歌單位置輪換，避免主位在同一首歌中無理由換人。
+主位依歌曲實際播放秒數輪班，不使用歌曲進度百分比。現有影片約 29 秒，因此每班為 28 秒，避免影片先回到首幀才切換。拖曳歌曲進度後必須依目前秒數立即回到正確班次。
 
-- `BLACK DJ`：穩定開場、段落銜接與收尾的主控。
+- `BLACK DJ`：穩定主控與段落銜接。
 - `RED DJ`：搖滾、高 BPM、Drop 與高能量段落優先。
 - `VIOLET DJ`：抒情、旋律、人聲與較柔和段落優先。
 - `GOLD DJ`：Hip-hop、流行舞曲、中高速科技電音優先。
-- `SILVER DUO`：完整雙人主場，不放在客座小窗；接管主舞台前段先使用 `guest`，再切換歌曲對應動作。
+- `SILVER DUO`：完整雙人主場，輪到時使用歌曲對應動作影片。
 
-單人特色 DJ 先用自己的 `guest` 影片在客座框預告，再於導播時段接管主位。BLACK 回到支援位時使用當前歌曲風格影片。不要讓同一 performer 同時出現在主位與客座框。
+五組 DJ 依歌曲風格決定起始順序，之後完整循環。每班最後 6 秒以下一位的 `guest` 影片在客座框預告，接班瞬間隱藏舊客座框。不要讓同一 performer 同時出現在主位與客座框。
 
 ## UI 修改原則
 

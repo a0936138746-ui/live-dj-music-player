@@ -76,9 +76,13 @@ type GuestDjCue = {
 type GuestDjScene = GuestDjCue & {
   video: string;
 };
+type DjRotationPlan = {
+  mainPerformer: DjPerformer;
+  nextPerformer?: DjPerformer;
+  slotElapsed: number;
+};
 type DjDirectorScene = {
   mainPerformer: DjPerformer;
-  mainVideo?: string;
   support?: GuestDjCue;
 };
 type DjVideoMap = Record<string, string>;
@@ -225,8 +229,9 @@ function createPerformerVideoMap(videos: {
 }
 
 const primaryDjPerformer: DjPerformer = "black";
+const djRotationSeconds = 28;
+const djHandoffCueSeconds = 6;
 const extraDjPerformers: DjPerformer[] = ["violet", "gold", "silver"];
-const featureDjPerformers: DjPerformer[] = ["red", ...extraDjPerformers];
 const djPerformerConfigs: Record<DjPerformer, DjPerformerConfig> = {
   black: {
     accent: "#25f3ff",
@@ -746,209 +751,63 @@ function getTimedStatus(start: number, progress: number, status: Exclude<GuestDj
   return progress - start < 2.2 ? "entering" : status;
 }
 
-function getAvailableFeaturePerformers(video: string, availableVideos: Record<string, boolean>) {
-  return featureDjPerformers.filter((performer) => Boolean(resolveOptionalPerformerDjVideo(video, performer, availableVideos)));
+function getDjRotationOrder(song: Song): DjPerformer[] {
+  if (song.mood === "rock") return ["red", "gold", "silver", "black", "violet"];
+  if (song.mood === "ballad" || song.bpm < 105) return ["violet", "black", "silver", "gold", "red"];
+  if (song.bpm >= 128) return ["gold", "red", "silver", "black", "violet"];
+  if (song.bpm >= 116) return ["gold", "violet", "silver", "black", "red"];
+  return ["violet", "gold", "black", "silver", "red"];
 }
 
-function getFeaturePerformerOrder(song: Song): DjPerformer[] {
-  if (song.mood === "rock") return ["red", "silver", "gold", "violet"];
-  if (song.mood === "ballad" || song.bpm < 105) return ["violet", "silver", "gold", "red"];
-  if (song.bpm >= 128) return ["gold", "silver", "red", "violet"];
-  if (song.bpm >= 116) return ["gold", "violet", "silver", "red"];
-  return ["violet", "gold", "silver", "red"];
-}
-
-function pickFeatureDjPerformer(
+function getDjRotationPlan(
   song: Song,
   video: string,
   availableVideos: Record<string, boolean>,
   activeIndex: number,
-) {
-  const availableSet = new Set(getAvailableFeaturePerformers(video, availableVideos));
-  const availablePerformers = getFeaturePerformerOrder(song).filter((performer) => availableSet.has(performer));
+  elapsedTime: number,
+): DjRotationPlan {
+  const availablePerformers = getDjRotationOrder(song).filter((performer) =>
+    Boolean(resolveOptionalPerformerDjVideo(video, performer, availableVideos)),
+  );
 
-  if (availablePerformers.length === 0) return undefined;
+  if (availablePerformers.length === 0) {
+    return { mainPerformer: primaryDjPerformer, slotElapsed: 0 };
+  }
 
-  return availablePerformers[activeIndex % availablePerformers.length];
+  const slotIndex = Math.floor(Math.max(0, elapsedTime) / djRotationSeconds);
+  const slotElapsed = Math.max(0, elapsedTime) % djRotationSeconds;
+  const rosterIndex = (activeIndex + slotIndex) % availablePerformers.length;
+
+  return {
+    mainPerformer: availablePerformers[rosterIndex],
+    nextPerformer:
+      availablePerformers.length > 1
+        ? availablePerformers[(rosterIndex + 1) % availablePerformers.length]
+        : undefined,
+    slotElapsed,
+  };
 }
 
 function getDjDirectorScene(
-  song: Song,
-  progress: number,
   isPlaying: boolean,
-  featurePerformer?: DjPerformer,
+  rotation: DjRotationPlan,
 ): DjDirectorScene {
-  if (!isPlaying || !featurePerformer) {
+  if (!isPlaying) {
     return { mainPerformer: primaryDjPerformer };
   }
 
-  const featureName = djPerformerConfigs[featurePerformer].shortName;
-  const primaryName = djPerformerConfigs[primaryDjPerformer].shortName;
-  const isPeakTrack = song.mood === "rock" || song.bpm >= 132;
-  const isSoftTrack = song.mood === "ballad" || song.bpm < 112;
-
-  if (djPerformerConfigs[featurePerformer].format === "duo") {
-    const duoWindows: Array<readonly [number, number]> = isPeakTrack
-      ? [[14, 38], [50, 76], [82, 94]]
-      : isSoftTrack
-        ? [[22, 48], [62, 84]]
-        : song.bpm >= 122
-          ? [[18, 44], [58, 82]]
-          : [[26, 50], [62, 82]];
-    const activeDuoWindow = duoWindows.find(([start, end]) => progress >= start && progress < end);
-
-    if (!activeDuoWindow) return { mainPerformer: primaryDjPerformer };
-
-    return {
-      mainPerformer: featurePerformer,
-      mainVideo: progress - activeDuoWindow[0] < 6 ? djVisual.guestSlot : undefined,
-    };
+  const cueStart = djRotationSeconds - djHandoffCueSeconds;
+  if (!rotation.nextPerformer || rotation.slotElapsed < cueStart) {
+    return { mainPerformer: rotation.mainPerformer };
   }
 
-  const directorWindows: Array<{
-    end: number;
-    label: string;
-    mainPerformer: DjPerformer;
-    start: number;
-    status: Exclude<GuestDjStatus, "entering" | "exiting">;
-    support?: DjPerformer;
-  }> =
-    isPeakTrack
-      ? [
-          {
-            end: 22,
-            label: `${featureName} CUE`,
-            mainPerformer: primaryDjPerformer,
-            start: 10,
-            status: "live",
-            support: featurePerformer,
-          },
-          {
-            end: 40,
-            label: `${primaryName} CAM`,
-            mainPerformer: featurePerformer,
-            start: 24,
-            status: "live",
-            support: primaryDjPerformer,
-          },
-          {
-            end: 58,
-            label: "DJ BATTLE",
-            mainPerformer: primaryDjPerformer,
-            start: 48,
-            status: "live",
-            support: featurePerformer,
-          },
-          {
-            end: 74,
-            label: `${primaryName} CAM`,
-            mainPerformer: featurePerformer,
-            start: 60,
-            status: "live",
-            support: primaryDjPerformer,
-          },
-          {
-            end: 88,
-            label: `${featureName} ENCORE`,
-            mainPerformer: primaryDjPerformer,
-            start: 80,
-            status: "encore",
-            support: featurePerformer,
-          },
-        ]
-      : isSoftTrack
-        ? [
-            {
-              end: 36,
-              label: `${featureName} SOFT LIVE`,
-              mainPerformer: primaryDjPerformer,
-              start: 24,
-              status: "live",
-              support: featurePerformer,
-            },
-            {
-              end: 58,
-              label: `${primaryName} SOFT CAM`,
-              mainPerformer: featurePerformer,
-              start: 42,
-              status: "live",
-              support: primaryDjPerformer,
-            },
-            {
-              end: 78,
-              label: "SOFT DUET",
-              mainPerformer: primaryDjPerformer,
-              start: 66,
-              status: "encore",
-              support: featurePerformer,
-            },
-          ]
-        : song.bpm >= 122
-        ? [
-            {
-              end: 30,
-              label: `${featureName} CUE`,
-              mainPerformer: primaryDjPerformer,
-              start: 18,
-              status: "live",
-              support: featurePerformer,
-            },
-            {
-              end: 54,
-              label: `${primaryName} CAM`,
-              mainPerformer: featurePerformer,
-              start: 40,
-              status: "live",
-              support: primaryDjPerformer,
-            },
-            {
-              end: 76,
-              label: `${featureName} ENCORE`,
-              mainPerformer: primaryDjPerformer,
-              start: 64,
-              status: "encore",
-              support: featurePerformer,
-            },
-          ]
-        : [
-            {
-              end: 38,
-              label: `${featureName} CUE`,
-              mainPerformer: primaryDjPerformer,
-              start: 28,
-              status: "live",
-              support: featurePerformer,
-            },
-            {
-              end: 68,
-              label: `${primaryName} CAM`,
-              mainPerformer: featurePerformer,
-              start: 56,
-              status: "live",
-              support: primaryDjPerformer,
-            },
-            {
-              end: 84,
-              label: "FINAL CALL",
-              mainPerformer: primaryDjPerformer,
-              start: 76,
-              status: "encore",
-              support: featurePerformer,
-            },
-          ];
-  const activeWindow = directorWindows.find((window) => progress >= window.start && progress < window.end);
-
-  if (!activeWindow) return { mainPerformer: primaryDjPerformer };
-
   return {
-    mainPerformer: activeWindow.mainPerformer,
-    support: activeWindow.support
-      ? {
-          label: activeWindow.label,
-          performer: activeWindow.support,
-          status: getTimedStatus(activeWindow.start, progress, activeWindow.status),
-        }
-      : undefined,
+    mainPerformer: rotation.mainPerformer,
+    support: {
+      label: `${djPerformerConfigs[rotation.nextPerformer].shortName} NEXT`,
+      performer: rotation.nextPerformer,
+      status: getTimedStatus(cueStart, rotation.slotElapsed, "live"),
+    },
   };
 }
 
@@ -1196,12 +1055,13 @@ export default function Home() {
     moodOverride,
   });
   const djSong = getEffectiveSong(song, activeAnalysis, moodOverride, bpmOverride);
+  const elapsedTime = (trackDuration * progress) / 100;
   const djState = getDjState(djSong, progress, isPlaying);
   const djEnergy = djState.label;
-  const featureDjPerformer = pickFeatureDjPerformer(djSong, djState.video, playableDjVideos, activeIndex);
-  const directorScene = getDjDirectorScene(djSong, progress, isPlaying, featureDjPerformer);
+  const djRotation = getDjRotationPlan(djSong, djState.video, playableDjVideos, activeIndex, elapsedTime);
+  const directorScene = getDjDirectorScene(isPlaying, djRotation);
   const djVideo = resolvePerformerDjVideo(
-    directorScene.mainVideo ?? djState.video,
+    djState.video,
     directorScene.mainPerformer,
     playableDjVideos,
     primaryDjPerformer,
@@ -1242,11 +1102,7 @@ export default function Home() {
       : `有 ${failedRequiredDjVideoCount} 支必備 DJ 影片載入失敗，系統會先避開它們並保留舞台待機畫面。`;
   const requestedSupportDjVideo =
     directorScene.support &&
-    resolveOptionalPerformerDjVideo(
-      directorScene.support.performer === primaryDjPerformer ? djState.video : djVisual.guestSlot,
-      directorScene.support.performer,
-      playableDjVideos,
-    );
+    resolveOptionalPerformerDjVideo(djVisual.guestSlot, directorScene.support.performer, playableDjVideos);
   const liveSupportDjScene =
     directorScene.support && requestedSupportDjVideo && requestedSupportDjVideo !== djVideo
       ? {
@@ -1254,19 +1110,19 @@ export default function Home() {
           video: requestedSupportDjVideo,
         }
       : undefined;
-  const supportDjVideo = renderedGuestDjScene?.video;
-  const supportDjName = renderedGuestDjScene ? djPerformerConfigs[renderedGuestDjScene.performer].name : "STANDBY";
+  const visibleGuestDjScene =
+    renderedGuestDjScene?.performer === directorScene.mainPerformer ? undefined : renderedGuestDjScene;
+  const supportDjVideo = visibleGuestDjScene?.video;
+  const supportDjName = visibleGuestDjScene ? djPerformerConfigs[visibleGuestDjScene.performer].name : "STANDBY";
+  const rotationSecondsRemaining = Math.max(1, Math.ceil(djRotationSeconds - djRotation.slotElapsed));
+  const isDjHandoffImminent = isPlaying && djRotation.slotElapsed >= djRotationSeconds - 0.8;
   const directorModeLabel = !isPlaying
     ? "待機"
-    : renderedGuestDjScene
-      ? directorScene.mainPerformer !== primaryDjPerformer
-        ? `${djPerformerConfigs[directorScene.mainPerformer].shortName} 主位`
-        : renderedGuestDjScene.status === "encore"
-          ? "雙 DJ 收尾"
-          : "雙 DJ 同框"
+    : visibleGuestDjScene
+      ? `${djPerformerConfigs[visibleGuestDjScene.performer].shortName} ${rotationSecondsRemaining}s 接棒`
       : djPerformerConfigs[directorScene.mainPerformer].format === "duo"
-        ? "雙 DJ 主場"
-        : "單人主控";
+        ? `雙 DJ 主場 · ${rotationSecondsRemaining}s`
+        : `主控 · ${rotationSecondsRemaining}s`;
   const energyClass = getEnergyClass(djSong, progress);
   const vocalistCue = getVocalistCue(djSong, progress);
   const energyLabel =
@@ -1320,7 +1176,6 @@ export default function Home() {
         bpmOverrides[autoNextSong.id],
       )
     : undefined;
-  const elapsedTime = (trackDuration * progress) / 100;
   const remainingTime = Math.max(0, trackDuration - elapsedTime);
   const progressLabel = `${Math.round(progress)}%`;
   const playlistRows = useMemo(
@@ -2949,7 +2804,11 @@ export default function Home() {
                 <span>{mainDjName} LIVE TAKE</span>
               </div>
             ) : null}
-            <div className={`dj-motion performer-${directorScene.mainPerformer} ${shouldShowDjFallback ? "has-fallback" : ""}`}>
+            <div
+              className={`dj-motion performer-${directorScene.mainPerformer} ${
+                shouldShowDjFallback ? "has-fallback" : ""
+              } ${isDjHandoffImminent ? "is-handoff" : ""}`}
+            >
               {shouldRenderMainDjVideo ? (
                 <video
                   aria-label={isPlaying ? "AI DJ 播放動作影片" : "AI DJ 待機影片"}
@@ -2980,14 +2839,14 @@ export default function Home() {
                 </div>
               ) : null}
             </div>
-            {renderedGuestDjScene && supportDjVideo ? (
+            {visibleGuestDjScene && supportDjVideo ? (
               <div
-                className={`guest-dj performer-${renderedGuestDjScene.performer} status-${renderedGuestDjScene.status} ${
+                className={`guest-dj performer-${visibleGuestDjScene.performer} status-${visibleGuestDjScene.status} ${
                   isGuestVideoReady ? "is-ready" : ""
                 }`}
                 aria-label="Guest DJ"
               >
-                <span>{renderedGuestDjScene.label}</span>
+                <span>{visibleGuestDjScene.label}</span>
                 <video
                   autoPlay
                   key={supportDjVideo}
