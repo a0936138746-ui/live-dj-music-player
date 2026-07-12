@@ -60,6 +60,13 @@ const partialAppearances = Array.from({ length: partialRoster.length }, (_, slot
 );
 assert.deepEqual(partialAppearances, partialRoster, "available performers must rotate without gaps");
 
+const expectedMinimumVideoSeconds = 29;
+assert.ok(
+  rotation.DJ_ROTATION_SECONDS * rotation.DJ_MAIN_MAX_PLAYBACK_RATE < expectedMinimumVideoSeconds,
+  "main video must hand off before a generated clip can loop",
+);
+
 console.log(`- ${rotation.DJ_ROTATION_SECONDS}s boundary handoff -> PASS`);
+console.log("- video loop safety margin -> PASS");
 console.log("- missing-media fallback roster -> PASS");
 console.log("All DJ performers are scheduled and reachable.");

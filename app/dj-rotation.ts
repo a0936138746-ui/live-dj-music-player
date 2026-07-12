@@ -13,6 +13,8 @@ export type DjRotationSong = {
 
 export const DJ_ROTATION_SECONDS = 28;
 export const DJ_HANDOFF_CUE_SECONDS = 6;
+export const DJ_NEXT_PRELOAD_SECONDS = 10;
+export const DJ_MAIN_MAX_PLAYBACK_RATE = 1;
 
 export function getDjRotationOrder(song: DjRotationSong): DjPerformer[] {
   if (song.mood === "rock") return ["red", "gold", "silver", "black", "violet"];

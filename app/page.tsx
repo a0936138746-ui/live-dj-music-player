@@ -22,6 +22,8 @@ import {
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   DJ_HANDOFF_CUE_SECONDS,
+  DJ_MAIN_MAX_PLAYBACK_RATE,
+  DJ_NEXT_PRELOAD_SECONDS,
   DJ_ROTATION_SECONDS,
   getDjRotationOrder,
   getDjRotationPlan,
@@ -1032,6 +1034,13 @@ export default function Home() {
     playableDjVideos,
     primaryDjPerformer,
   );
+  const nextMainDjVideo = djRotation.nextPerformer
+    ? resolveOptionalPerformerDjVideo(djState.video, djRotation.nextPerformer, playableDjVideos)
+    : undefined;
+  const shouldPreloadNextMainDj =
+    isPlaying &&
+    nextMainDjVideo &&
+    djRotation.slotElapsed >= DJ_ROTATION_SECONDS - DJ_NEXT_PRELOAD_SECONDS;
   const mainDjName = djPerformerConfigs[directorScene.mainPerformer].name;
   const availableRequiredDjVideoCount = requiredDjVideoSlots.filter((source) => playableDjVideos[source]).length;
   const failedRequiredDjVideoCount = requiredDjVideoSlots.filter((source) => failedDjVideos[source]).length;
@@ -1796,7 +1805,7 @@ export default function Home() {
     const video = document.querySelector<HTMLVideoElement>(".dj-video");
     if (!video) return;
 
-    video.playbackRate = videoRate;
+    video.playbackRate = Math.min(DJ_MAIN_MAX_PLAYBACK_RATE, Math.max(0.82, videoRate));
     video.play().catch(() => undefined);
   }, [djVideo, videoRate]);
 
@@ -2781,7 +2790,7 @@ export default function Home() {
                   autoPlay
                   className={`dj-video ${isVideoReady ? "is-ready" : ""}`}
                   key={djVideo}
-                  loop
+                  loop={!isPlaying}
                   muted
                   onError={() => {
                     setIsVideoReady(false);
@@ -2816,7 +2825,6 @@ export default function Home() {
                 <video
                   autoPlay
                   key={supportDjVideo}
-                  loop
                   muted
                   onError={() => {
                     setIsGuestVideoReady(false);
@@ -3278,6 +3286,9 @@ export default function Home() {
         {djVideoSources.filter((source) => playableDjVideos[source]).map((source) => (
           <video key={source} muted playsInline preload="metadata" src={getDjMediaUrl(source)} />
         ))}
+        {shouldPreloadNextMainDj ? (
+          <video key={`next-${nextMainDjVideo}`} muted playsInline preload="auto" src={getDjMediaUrl(nextMainDjVideo)} />
+        ) : null}
       </div>
     </main>
   );
