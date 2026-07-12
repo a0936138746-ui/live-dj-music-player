@@ -3410,7 +3410,7 @@ export default function Home() {
       </section>
       <div aria-hidden="true" className="video-preloaders">
         {djVideoSources.filter((source) => playableDjVideos[source]).map((source) => (
-          <video key={source} muted playsInline preload="auto" src={getDjMediaUrl(source)} />
+          <video key={source} muted playsInline preload="metadata" src={getDjMediaUrl(source)} />
         ))}
       </div>
     </main>
