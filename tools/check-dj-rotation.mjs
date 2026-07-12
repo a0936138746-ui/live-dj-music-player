@@ -27,14 +27,25 @@ console.log("DJ rotation coverage check");
 
 for (const { label, song } of scenarios) {
   const order = rotation.getDjRotationOrder(song);
+  const rotationSeconds = rotation.getDjRotationSeconds(song);
+  const eightBeatSeconds = (60 / song.bpm) * 8;
   assert.deepEqual([...order].sort(), expectedPerformers, `${label}: roster must contain all five performers`);
+  assert.ok(
+    rotationSeconds >= rotation.DJ_MIN_ROTATION_SECONDS && rotationSeconds <= rotation.DJ_ROTATION_SECONDS,
+    `${label}: rotation must stay inside the safe video window`,
+  );
+  assert.ok(
+    Math.abs(rotationSeconds / eightBeatSeconds - Math.round(rotationSeconds / eightBeatSeconds)) < 0.001,
+    `${label}: handoff must align to an eight-beat phrase`,
+  );
 
   for (let activeIndex = 0; activeIndex < order.length; activeIndex += 1) {
     const appearances = Array.from({ length: order.length }, (_, slotIndex) =>
       rotation.getDjRotationPlan(
         order,
         activeIndex,
-        slotIndex * rotation.DJ_ROTATION_SECONDS + 0.1,
+        slotIndex * rotationSeconds + 0.1,
+        rotationSeconds,
       ).mainPerformer,
     );
     assert.deepEqual(
@@ -44,12 +55,14 @@ for (const { label, song } of scenarios) {
     );
   }
 
-  console.log(`- ${label}: ${order.join(" -> ")} -> PASS`);
+  console.log(`- ${label} (${rotationSeconds.toFixed(2)}s): ${order.join(" -> ")} -> PASS`);
 }
 
-const boundaryOrder = rotation.getDjRotationOrder({ bpm: 128, mood: "tech" });
-const beforeHandoff = rotation.getDjRotationPlan(boundaryOrder, 0, rotation.DJ_ROTATION_SECONDS - 0.01);
-const afterHandoff = rotation.getDjRotationPlan(boundaryOrder, 0, rotation.DJ_ROTATION_SECONDS);
+const boundarySong = { bpm: 128, mood: "tech" };
+const boundaryOrder = rotation.getDjRotationOrder(boundarySong);
+const boundarySeconds = rotation.getDjRotationSeconds(boundarySong);
+const beforeHandoff = rotation.getDjRotationPlan(boundaryOrder, 0, boundarySeconds - 0.01, boundarySeconds);
+const afterHandoff = rotation.getDjRotationPlan(boundaryOrder, 0, boundarySeconds, boundarySeconds);
 assert.equal(beforeHandoff.mainPerformer, boundaryOrder[0], "performer must stay on deck before the boundary");
 assert.equal(afterHandoff.mainPerformer, boundaryOrder[1], "next performer must take over at the boundary");
 assert.equal(afterHandoff.slotElapsed, 0, "new slot must start from zero");
@@ -66,7 +79,7 @@ assert.ok(
   "main video must hand off before a generated clip can loop",
 );
 
-console.log(`- ${rotation.DJ_ROTATION_SECONDS}s boundary handoff -> PASS`);
+console.log(`- ${boundarySeconds.toFixed(2)}s beat-aligned boundary handoff -> PASS`);
 console.log("- video loop safety margin -> PASS");
 console.log("- missing-media fallback roster -> PASS");
 console.log("All DJ performers are scheduled and reachable.");

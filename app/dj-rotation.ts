@@ -12,9 +12,20 @@ export type DjRotationSong = {
 };
 
 export const DJ_ROTATION_SECONDS = 28;
+export const DJ_MIN_ROTATION_SECONDS = 24;
 export const DJ_HANDOFF_CUE_SECONDS = 6;
 export const DJ_NEXT_PRELOAD_SECONDS = 10;
 export const DJ_MAIN_MAX_PLAYBACK_RATE = 1;
+
+export function getDjRotationSeconds(song: DjRotationSong) {
+  const eightBeatSeconds = (60 / Math.max(60, song.bpm)) * 8;
+  const completePhrases = Math.max(1, Math.floor(DJ_ROTATION_SECONDS / eightBeatSeconds));
+  const phraseAlignedSeconds = completePhrases * eightBeatSeconds;
+
+  return Math.round(
+    Math.max(DJ_MIN_ROTATION_SECONDS, Math.min(DJ_ROTATION_SECONDS, phraseAlignedSeconds)) * 1000,
+  ) / 1000;
+}
 
 export function getDjRotationOrder(song: DjRotationSong): DjPerformer[] {
   if (song.mood === "rock") return ["red", "gold", "silver", "black", "violet"];
@@ -28,14 +39,16 @@ export function getDjRotationPlan(
   availablePerformers: DjPerformer[],
   activeIndex: number,
   elapsedTime: number,
+  rotationSeconds = DJ_ROTATION_SECONDS,
 ): DjRotationPlan {
   if (availablePerformers.length === 0) {
     return { mainPerformer: "black", slotElapsed: 0 };
   }
 
   const normalizedTime = Math.max(0, elapsedTime);
-  const slotIndex = Math.floor(normalizedTime / DJ_ROTATION_SECONDS);
-  const slotElapsed = normalizedTime % DJ_ROTATION_SECONDS;
+  const normalizedRotationSeconds = Math.max(1, rotationSeconds);
+  const slotIndex = Math.floor(normalizedTime / normalizedRotationSeconds);
+  const slotElapsed = normalizedTime % normalizedRotationSeconds;
   const rosterIndex = (Math.max(0, activeIndex) + slotIndex) % availablePerformers.length;
 
   return {

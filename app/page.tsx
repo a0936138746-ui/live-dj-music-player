@@ -24,9 +24,9 @@ import {
   DJ_HANDOFF_CUE_SECONDS,
   DJ_MAIN_MAX_PLAYBACK_RATE,
   DJ_NEXT_PRELOAD_SECONDS,
-  DJ_ROTATION_SECONDS,
   getDjRotationOrder,
   getDjRotationPlan,
+  getDjRotationSeconds,
   type DjPerformer,
   type DjRotationPlan,
 } from "./dj-rotation";
@@ -756,12 +756,13 @@ function getTimedStatus(start: number, progress: number, status: Exclude<GuestDj
 function getDjDirectorScene(
   isPlaying: boolean,
   rotation: DjRotationPlan,
+  rotationSeconds: number,
 ): DjDirectorScene {
   if (!isPlaying) {
     return { mainPerformer: primaryDjPerformer };
   }
 
-  const cueStart = DJ_ROTATION_SECONDS - DJ_HANDOFF_CUE_SECONDS;
+  const cueStart = rotationSeconds - DJ_HANDOFF_CUE_SECONDS;
   if (!rotation.nextPerformer || rotation.slotElapsed < cueStart) {
     return { mainPerformer: rotation.mainPerformer };
   }
@@ -1021,13 +1022,14 @@ export default function Home() {
   });
   const djSong = getEffectiveSong(song, activeAnalysis, moodOverride, bpmOverride);
   const elapsedTime = (trackDuration * progress) / 100;
+  const rotationSeconds = getDjRotationSeconds(djSong);
   const djState = getDjState(djSong, progress, isPlaying);
   const djEnergy = djState.label;
   const availableRotationPerformers = getDjRotationOrder(djSong).filter((performer) =>
     Boolean(resolveOptionalPerformerDjVideo(djState.video, performer, playableDjVideos)),
   );
-  const djRotation = getDjRotationPlan(availableRotationPerformers, activeIndex, elapsedTime);
-  const directorScene = getDjDirectorScene(isPlaying, djRotation);
+  const djRotation = getDjRotationPlan(availableRotationPerformers, activeIndex, elapsedTime, rotationSeconds);
+  const directorScene = getDjDirectorScene(isPlaying, djRotation, rotationSeconds);
   const djVideo = resolvePerformerDjVideo(
     djState.video,
     directorScene.mainPerformer,
@@ -1041,7 +1043,7 @@ export default function Home() {
     ? resolveOptionalPerformerDjVideo(djVisual.guestSlot, djRotation.nextPerformer, playableDjVideos)
     : undefined;
   const shouldPreloadNextDj =
-    isPlaying && djRotation.slotElapsed >= DJ_ROTATION_SECONDS - DJ_NEXT_PRELOAD_SECONDS;
+    isPlaying && djRotation.slotElapsed >= rotationSeconds - DJ_NEXT_PRELOAD_SECONDS;
   const nextDjPreloadSources = shouldPreloadNextDj
     ? [...new Set([nextMainDjVideo, nextGuestDjVideo].filter((source): source is string => Boolean(source)))]
     : [];
@@ -1093,8 +1095,8 @@ export default function Home() {
     renderedGuestDjScene?.performer === directorScene.mainPerformer ? undefined : renderedGuestDjScene;
   const supportDjVideo = visibleGuestDjScene?.video;
   const supportDjName = visibleGuestDjScene ? djPerformerConfigs[visibleGuestDjScene.performer].name : "STANDBY";
-  const rotationSecondsRemaining = Math.max(1, Math.ceil(DJ_ROTATION_SECONDS - djRotation.slotElapsed));
-  const isDjHandoffImminent = isPlaying && djRotation.slotElapsed >= DJ_ROTATION_SECONDS - 0.8;
+  const rotationSecondsRemaining = Math.max(1, Math.ceil(rotationSeconds - djRotation.slotElapsed));
+  const isDjHandoffImminent = isPlaying && djRotation.slotElapsed >= rotationSeconds - 0.8;
   const directorModeLabel = !isPlaying
     ? "待機"
     : visibleGuestDjScene
