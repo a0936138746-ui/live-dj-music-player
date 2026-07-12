@@ -637,15 +637,7 @@ function getMoodAccent(mood: Song["mood"]) {
   return "#25f3ff";
 }
 
-function getDjState(song: Song, progress: number, isPlaying: boolean) {
-  if (!isPlaying) {
-    return {
-      cue: "DJ standing by",
-      label: "READY",
-      video: djVisual.idleVideo,
-    };
-  }
-
+function getActiveDjState(song: Song, progress: number) {
   if (song.mood === "ballad" || song.bpm < 105) {
     return {
       cue: "Soft showcase",
@@ -683,6 +675,19 @@ function getDjState(song: Song, progress: number, isPlaying: boolean) {
     label: "TRACK VIDEO",
     video: song.visualVideo ?? djVisual.grooveSlot,
   };
+}
+
+function getDjState(song: Song, progress: number, isPlaying: boolean, hasTrack: boolean) {
+  if (!hasTrack) {
+    return {
+      cue: "DJ standing by",
+      label: "READY",
+      video: djVisual.idleVideo,
+    };
+  }
+
+  const activeState = getActiveDjState(song, progress);
+  return isPlaying ? activeState : { ...activeState, cue: "DJ paused", label: "PAUSED" };
 }
 
 function getEnergyClass(song: Song, progress: number) {
@@ -759,7 +764,7 @@ function getDjDirectorScene(
   rotationSeconds: number,
 ): DjDirectorScene {
   if (!isPlaying) {
-    return { mainPerformer: primaryDjPerformer };
+    return { mainPerformer: rotation.mainPerformer };
   }
 
   const cueStart = rotationSeconds - DJ_HANDOFF_CUE_SECONDS;
@@ -1023,7 +1028,7 @@ export default function Home() {
   const djSong = getEffectiveSong(song, activeAnalysis, moodOverride, bpmOverride);
   const elapsedTime = (trackDuration * progress) / 100;
   const rotationSeconds = getDjRotationSeconds(djSong);
-  const djState = getDjState(djSong, progress, isPlaying);
+  const djState = getDjState(djSong, progress, isPlaying, hasSongs);
   const djEnergy = djState.label;
   const availableRotationPerformers = getDjRotationOrder(djSong).filter((performer) =>
     Boolean(resolveOptionalPerformerDjVideo(djState.video, performer, playableDjVideos)),
@@ -1131,6 +1136,7 @@ export default function Home() {
     ? `${Math.round(activeAnalysis.confidence * 100)}%`
     : "待掃描";
   const videoRate = getVideoRate(djSong, progress, isPlaying);
+  const mainVideoPlaybackRate = Math.min(DJ_MAIN_MAX_PLAYBACK_RATE, Math.max(0.82, videoRate));
   const recommendedIndex = useMemo(
     () => getRecommendedTrackIndex(activeIndex, playlist, djSong, analysisById, moodOverrides, bpmOverrides),
     [activeIndex, analysisById, bpmOverrides, djSong, moodOverrides, playlist],
@@ -1811,9 +1817,21 @@ export default function Home() {
     const video = document.querySelector<HTMLVideoElement>(".dj-video");
     if (!video) return;
 
-    video.playbackRate = Math.min(DJ_MAIN_MAX_PLAYBACK_RATE, Math.max(0.82, videoRate));
+    if (!isPlaying) {
+      video.pause();
+      return;
+    }
+
+    video.playbackRate = mainVideoPlaybackRate;
     video.play().catch(() => undefined);
-  }, [djVideo, videoRate]);
+  }, [djVideo, isPlaying, mainVideoPlaybackRate]);
+
+  useEffect(() => {
+    const video = document.querySelector<HTMLVideoElement>(".dj-video");
+    if (!video) return;
+
+    video.currentTime = 0;
+  }, [song.id]);
 
   useEffect(() => {
     const activeCard = document.querySelector<HTMLElement>("[data-active-song='true']");
@@ -1976,7 +1994,17 @@ export default function Home() {
     const audio = audioRef.current;
     if (!audio?.duration) return;
 
-    audio.currentTime = (audio.duration * value) / 100;
+    const targetTime = (audio.duration * value) / 100;
+    audio.currentTime = targetTime;
+
+    window.requestAnimationFrame(() => {
+      const video = document.querySelector<HTMLVideoElement>(".dj-video");
+      if (!video?.duration) return;
+
+      const targetVideoTime = (targetTime % rotationSeconds) * mainVideoPlaybackRate;
+      video.currentTime = Math.min(targetVideoTime, Math.max(0, video.duration - 0.12));
+      if (isPlaying) video.play().catch(() => undefined);
+    });
   }
 
   function updateTrackDuration() {
@@ -2796,13 +2824,27 @@ export default function Home() {
                   autoPlay
                   className={`dj-video ${isVideoReady ? "is-ready" : ""}`}
                   key={djVideo}
-                  loop={!isPlaying}
                   muted
                   onError={() => {
                     setIsVideoReady(false);
                     markDjVideoFailed(djVideo);
                   }}
-                  onLoadedData={() => {
+                  onLoadedData={(event) => {
+                    const targetVideoTime = djRotation.slotElapsed * mainVideoPlaybackRate;
+                    const normalizedTargetTime = Math.min(
+                      targetVideoTime,
+                      Math.max(0, event.currentTarget.duration - 0.12),
+                    );
+
+                    if (normalizedTargetTime > 0.15) {
+                      event.currentTarget.currentTime = normalizedTargetTime;
+                      return;
+                    }
+
+                    setIsVideoReady(true);
+                    markDjVideoReady(djVideo);
+                  }}
+                  onSeeked={() => {
                     setIsVideoReady(true);
                     markDjVideoReady(djVideo);
                   }}
