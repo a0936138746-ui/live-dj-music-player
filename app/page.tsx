@@ -78,11 +78,13 @@ type GuestDjScene = GuestDjCue & {
 };
 type DjDirectorScene = {
   mainPerformer: DjPerformer;
+  mainVideo?: string;
   support?: GuestDjCue;
 };
 type DjVideoMap = Record<string, string>;
 type DjPerformerConfig = {
   accent: string;
+  format: "solo" | "duo";
   name: string;
   shortName: string;
   videos: DjVideoMap;
@@ -228,6 +230,7 @@ const featureDjPerformers: DjPerformer[] = ["red", ...extraDjPerformers];
 const djPerformerConfigs: Record<DjPerformer, DjPerformerConfig> = {
   black: {
     accent: "#25f3ff",
+    format: "solo",
     name: "BLACK DJ",
     shortName: "BLACK",
     videos: createPerformerVideoMap({
@@ -239,6 +242,7 @@ const djPerformerConfigs: Record<DjPerformer, DjPerformerConfig> = {
   },
   red: {
     accent: "#ff4f8b",
+    format: "solo",
     name: "RED DJ",
     shortName: "RED",
     videos: createPerformerVideoMap({
@@ -251,6 +255,7 @@ const djPerformerConfigs: Record<DjPerformer, DjPerformerConfig> = {
   },
   violet: {
     accent: "#b774ff",
+    format: "solo",
     name: "VIOLET DJ",
     shortName: "VIOLET",
     videos: createPerformerVideoMap({
@@ -263,6 +268,7 @@ const djPerformerConfigs: Record<DjPerformer, DjPerformerConfig> = {
   },
   gold: {
     accent: "#ffcf57",
+    format: "solo",
     name: "GOLD DJ",
     shortName: "GOLD",
     videos: createPerformerVideoMap({
@@ -275,7 +281,8 @@ const djPerformerConfigs: Record<DjPerformer, DjPerformerConfig> = {
   },
   silver: {
     accent: "#9fe7ff",
-    name: "SILVER DJ",
+    format: "duo",
+    name: "SILVER DUO",
     shortName: "SILVER",
     videos: createPerformerVideoMap({
       groove: "/assets/dj-silver-groove.mp4",
@@ -743,18 +750,26 @@ function getAvailableFeaturePerformers(video: string, availableVideos: Record<st
   return featureDjPerformers.filter((performer) => Boolean(resolveOptionalPerformerDjVideo(video, performer, availableVideos)));
 }
 
+function getFeaturePerformerOrder(song: Song): DjPerformer[] {
+  if (song.mood === "rock") return ["red", "silver", "gold", "violet"];
+  if (song.mood === "ballad" || song.bpm < 105) return ["violet", "silver", "gold", "red"];
+  if (song.bpm >= 128) return ["gold", "silver", "red", "violet"];
+  if (song.bpm >= 116) return ["gold", "violet", "silver", "red"];
+  return ["violet", "gold", "silver", "red"];
+}
+
 function pickFeatureDjPerformer(
+  song: Song,
   video: string,
   availableVideos: Record<string, boolean>,
   activeIndex: number,
-  progress: number,
 ) {
-  const availablePerformers = getAvailableFeaturePerformers(video, availableVideos);
+  const availableSet = new Set(getAvailableFeaturePerformers(video, availableVideos));
+  const availablePerformers = getFeaturePerformerOrder(song).filter((performer) => availableSet.has(performer));
 
   if (availablePerformers.length === 0) return undefined;
 
-  const phraseIndex = Math.floor(progress / 24);
-  return availablePerformers[(activeIndex + phraseIndex) % availablePerformers.length];
+  return availablePerformers[activeIndex % availablePerformers.length];
 }
 
 function getDjDirectorScene(
@@ -771,6 +786,25 @@ function getDjDirectorScene(
   const primaryName = djPerformerConfigs[primaryDjPerformer].shortName;
   const isPeakTrack = song.mood === "rock" || song.bpm >= 132;
   const isSoftTrack = song.mood === "ballad" || song.bpm < 112;
+
+  if (djPerformerConfigs[featurePerformer].format === "duo") {
+    const duoWindows: Array<readonly [number, number]> = isPeakTrack
+      ? [[14, 38], [50, 76], [82, 94]]
+      : isSoftTrack
+        ? [[22, 48], [62, 84]]
+        : song.bpm >= 122
+          ? [[18, 44], [58, 82]]
+          : [[26, 50], [62, 82]];
+    const activeDuoWindow = duoWindows.find(([start, end]) => progress >= start && progress < end);
+
+    if (!activeDuoWindow) return { mainPerformer: primaryDjPerformer };
+
+    return {
+      mainPerformer: featurePerformer,
+      mainVideo: progress - activeDuoWindow[0] < 6 ? djVisual.guestSlot : undefined,
+    };
+  }
+
   const directorWindows: Array<{
     end: number;
     label: string;
@@ -1164,10 +1198,10 @@ export default function Home() {
   const djSong = getEffectiveSong(song, activeAnalysis, moodOverride, bpmOverride);
   const djState = getDjState(djSong, progress, isPlaying);
   const djEnergy = djState.label;
-  const featureDjPerformer = pickFeatureDjPerformer(djState.video, playableDjVideos, activeIndex, progress);
+  const featureDjPerformer = pickFeatureDjPerformer(djSong, djState.video, playableDjVideos, activeIndex);
   const directorScene = getDjDirectorScene(djSong, progress, isPlaying, featureDjPerformer);
   const djVideo = resolvePerformerDjVideo(
-    djState.video,
+    directorScene.mainVideo ?? djState.video,
     directorScene.mainPerformer,
     playableDjVideos,
     primaryDjPerformer,
@@ -1207,7 +1241,12 @@ export default function Home() {
       ? "目前沒有偵測到 DJ 影片，請確認 .local-media/assets 或雲端媒體來源。"
       : `有 ${failedRequiredDjVideoCount} 支必備 DJ 影片載入失敗，系統會先避開它們並保留舞台待機畫面。`;
   const requestedSupportDjVideo =
-    directorScene.support && resolveOptionalPerformerDjVideo(djState.video, directorScene.support.performer, playableDjVideos);
+    directorScene.support &&
+    resolveOptionalPerformerDjVideo(
+      directorScene.support.performer === primaryDjPerformer ? djState.video : djVisual.guestSlot,
+      directorScene.support.performer,
+      playableDjVideos,
+    );
   const liveSupportDjScene =
     directorScene.support && requestedSupportDjVideo && requestedSupportDjVideo !== djVideo
       ? {
@@ -1225,7 +1264,9 @@ export default function Home() {
         : renderedGuestDjScene.status === "encore"
           ? "雙 DJ 收尾"
           : "雙 DJ 同框"
-      : "單人主控";
+      : djPerformerConfigs[directorScene.mainPerformer].format === "duo"
+        ? "雙 DJ 主場"
+        : "單人主控";
   const energyClass = getEnergyClass(djSong, progress);
   const vocalistCue = getVocalistCue(djSong, progress);
   const energyLabel =
