@@ -141,6 +141,7 @@ liveAudioMetrics
 
 ```powershell
 npm run typecheck
+npm run rotation:check
 npm run media:check
 npm run build
 ```
