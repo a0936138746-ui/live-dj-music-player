@@ -1037,10 +1037,14 @@ export default function Home() {
   const nextMainDjVideo = djRotation.nextPerformer
     ? resolveOptionalPerformerDjVideo(djState.video, djRotation.nextPerformer, playableDjVideos)
     : undefined;
-  const shouldPreloadNextMainDj =
-    isPlaying &&
-    nextMainDjVideo &&
-    djRotation.slotElapsed >= DJ_ROTATION_SECONDS - DJ_NEXT_PRELOAD_SECONDS;
+  const nextGuestDjVideo = djRotation.nextPerformer
+    ? resolveOptionalPerformerDjVideo(djVisual.guestSlot, djRotation.nextPerformer, playableDjVideos)
+    : undefined;
+  const shouldPreloadNextDj =
+    isPlaying && djRotation.slotElapsed >= DJ_ROTATION_SECONDS - DJ_NEXT_PRELOAD_SECONDS;
+  const nextDjPreloadSources = shouldPreloadNextDj
+    ? [...new Set([nextMainDjVideo, nextGuestDjVideo].filter((source): source is string => Boolean(source)))]
+    : [];
   const mainDjName = djPerformerConfigs[directorScene.mainPerformer].name;
   const availableRequiredDjVideoCount = requiredDjVideoSlots.filter((source) => playableDjVideos[source]).length;
   const failedRequiredDjVideoCount = requiredDjVideoSlots.filter((source) => failedDjVideos[source]).length;
@@ -3286,9 +3290,9 @@ export default function Home() {
         {djVideoSources.filter((source) => playableDjVideos[source]).map((source) => (
           <video key={source} muted playsInline preload="metadata" src={getDjMediaUrl(source)} />
         ))}
-        {shouldPreloadNextMainDj ? (
-          <video key={`next-${nextMainDjVideo}`} muted playsInline preload="auto" src={getDjMediaUrl(nextMainDjVideo)} />
-        ) : null}
+        {nextDjPreloadSources.map((source) => (
+          <video key={`next-${source}`} muted playsInline preload="auto" src={getDjMediaUrl(source)} />
+        ))}
       </div>
     </main>
   );
