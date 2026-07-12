@@ -1492,7 +1492,7 @@ export default function Home() {
       new Promise<readonly [string, boolean]>((resolve) => {
         const video = document.createElement("video");
         let isSettled = false;
-        const timer = window.setTimeout(() => finish(false), 5200);
+        const timer = window.setTimeout(() => finish(false), 12000);
 
         function finish(isReady: boolean) {
           if (isSettled) return;
@@ -1523,13 +1523,31 @@ export default function Home() {
       );
       setDidCheckDjVideos(true);
 
-      Promise.all(optionalDjVideoSlots.map(probeDjVideo)).then((entries) => {
-        if (isCancelled) return;
-        setAvailableDjVideos((current) => ({
-          ...current,
-          ...Object.fromEntries(entries),
-        }));
-      });
+      let nextOptionalDjVideoIndex = 0;
+      const probeOptionalDjVideos = async () => {
+        while (!isCancelled) {
+          const source = optionalDjVideoSlots[nextOptionalDjVideoIndex];
+          nextOptionalDjVideoIndex += 1;
+          if (!source) return;
+
+          let [, isReady] = await probeDjVideo(source);
+          if (!isReady && !isCancelled) {
+            [, isReady] = await probeDjVideo(source);
+          }
+          if (isCancelled) return;
+
+          setAvailableDjVideos((current) =>
+            current[source] === isReady ? current : { ...current, [source]: isReady },
+          );
+        }
+      };
+
+      void Promise.all(
+        Array.from(
+          { length: Math.min(4, optionalDjVideoSlots.length) },
+          probeOptionalDjVideos,
+        ),
+      );
 
       return () => {
         isCancelled = true;
