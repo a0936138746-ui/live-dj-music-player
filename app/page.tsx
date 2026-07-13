@@ -335,6 +335,12 @@ const stageLedBars = Array.from({ length: 18 }, (_, index) => index);
 const stageLaserBeams = Array.from({ length: 7 }, (_, index) => index);
 const stageFogLayers = Array.from({ length: 3 }, (_, index) => index);
 const stageBurstRings = Array.from({ length: 3 }, (_, index) => index);
+const djVideoStartOffsetSeconds = 0.12;
+
+function getDjVideoStartTime(duration: number) {
+  if (!Number.isFinite(duration) || duration <= djVideoStartOffsetSeconds) return 0;
+  return Math.min(djVideoStartOffsetSeconds, duration - djVideoStartOffsetSeconds);
+}
 const requiredDjVideoSlots = [
   ...new Set([
     ...Object.values(djPerformerConfigs.black.videos),
@@ -993,7 +999,8 @@ export default function Home() {
   const [trackDuration, setTrackDuration] = useState(emptySong.duration);
   const [volume, setVolume] = useState(0.8);
   const [isMuted, setIsMuted] = useState(false);
-  const [isVideoReady, setIsVideoReady] = useState(true);
+  const [readyMainDjVideos, setReadyMainDjVideos] = useState<Record<string, boolean>>({});
+  const [retainedMainDjVideo, setRetainedMainDjVideo] = useState<string>();
   const [isGuestVideoReady, setIsGuestVideoReady] = useState(false);
   const [renderedGuestDjScene, setRenderedGuestDjScene] = useState<GuestDjScene | undefined>();
   const [audioStatus, setAudioStatus] = useState("READY");
@@ -1029,6 +1036,7 @@ export default function Home() {
   const [failedDjVideos, setFailedDjVideos] = useState<Record<string, boolean>>({});
   const [didCheckDjVideos, setDidCheckDjVideos] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
+  const djStageRef = useRef<HTMLElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
@@ -1037,6 +1045,8 @@ export default function Home() {
   const frequencyDataRef = useRef<Uint8Array | null>(null);
   const liveAudioFrameRef = useRef<number | null>(null);
   const guestExitTimerRef = useRef<number | null>(null);
+  const mainDjTransitionTimerRef = useRef<number | null>(null);
+  const previousMainDjVideoRef = useRef<string | null>(null);
   const lastLiveMetricUpdateRef = useRef(0);
   const lastVisualModeBeatRef = useRef(-1);
   const didLoadPreferencesRef = useRef(false);
@@ -1086,6 +1096,13 @@ export default function Home() {
     : undefined;
   const shouldPreloadNextDj =
     isPlaying && djRotation.slotElapsed >= rotationSeconds - DJ_NEXT_PRELOAD_SECONDS;
+  const mainDjLayerSources = [
+    ...new Set(
+      [retainedMainDjVideo, djVideo, shouldPreloadNextDj ? nextMainDjVideo : undefined].filter(
+        (source): source is string => Boolean(source),
+      ),
+    ),
+  ];
   const nextDjPreloadSources = shouldPreloadNextDj
     ? [...new Set([nextMainDjVideo, nextGuestDjVideo].filter((source): source is string => Boolean(source)))]
     : [];
@@ -1094,6 +1111,7 @@ export default function Home() {
   const failedRequiredDjVideoCount = requiredDjVideoSlots.filter((source) => failedDjVideos[source]).length;
   const availableOptionalDjVideoCount = optionalDjVideoSlots.filter((source) => playableDjVideos[source]).length;
   const isActiveDjVideoAvailable = Boolean(playableDjVideos[djVideo]);
+  const isVideoReady = Boolean(readyMainDjVideos[djVideo]);
   const shouldRenderMainDjVideo = !didCheckDjVideos || isActiveDjVideoAvailable;
   const shouldShowDjFallback = didCheckDjVideos && !isActiveDjVideoAvailable;
   const djMediaSourceLabel = isCloudMediaConfigured ? "雲端影片" : "本機影片";
@@ -1510,6 +1528,22 @@ export default function Home() {
     setFailedDjVideos((current) => (current[source] ? current : { ...current, [source]: true }));
   }
 
+  function markMainDjVideoReady(source: string) {
+    setReadyMainDjVideos((current) => (current[source] ? current : { ...current, [source]: true }));
+    markDjVideoReady(source);
+  }
+
+  function markMainDjVideoFailed(source: string) {
+    setReadyMainDjVideos((current) => {
+      if (!current[source]) return current;
+
+      const next = { ...current };
+      delete next[source];
+      return next;
+    });
+    markDjVideoFailed(source);
+  }
+
   useEffect(() => {
     return () => {
       analysisGenerationRef.current += 1;
@@ -1870,8 +1904,42 @@ export default function Home() {
   }, [beatMs, hasSongs, isPlaying, singerDanceProfile, singerFrameCount, visualMode]);
 
   useEffect(() => {
-    const video = document.querySelector<HTMLVideoElement>(".dj-video");
+    const previousSource = previousMainDjVideoRef.current;
+    previousMainDjVideoRef.current = djVideo;
+
+    if (previousSource && previousSource !== djVideo) {
+      setRetainedMainDjVideo(previousSource);
+    }
+  }, [djVideo]);
+
+  useEffect(() => {
+    if (!isVideoReady || !retainedMainDjVideo || retainedMainDjVideo === djVideo) return;
+
+    if (mainDjTransitionTimerRef.current !== null) {
+      window.clearTimeout(mainDjTransitionTimerRef.current);
+    }
+
+    mainDjTransitionTimerRef.current = window.setTimeout(() => {
+      setRetainedMainDjVideo(undefined);
+      mainDjTransitionTimerRef.current = null;
+    }, 260);
+
+    return () => {
+      if (mainDjTransitionTimerRef.current !== null) {
+        window.clearTimeout(mainDjTransitionTimerRef.current);
+        mainDjTransitionTimerRef.current = null;
+      }
+    };
+  }, [djVideo, isVideoReady, retainedMainDjVideo]);
+
+  useEffect(() => {
+    const videos = document.querySelectorAll<HTMLVideoElement>(".dj-video-layer");
+    const video = document.querySelector<HTMLVideoElement>(".dj-video-layer.is-current");
     if (!video) return;
+
+    videos.forEach((layer) => {
+      if (layer !== video) layer.pause();
+    });
 
     if (!isPlaying) {
       video.pause();
@@ -1883,10 +1951,9 @@ export default function Home() {
   }, [djVideo, isPlaying, mainVideoPlaybackRate]);
 
   useEffect(() => {
-    const video = document.querySelector<HTMLVideoElement>(".dj-video");
-    if (!video) return;
-
-    video.currentTime = 0;
+    document.querySelectorAll<HTMLVideoElement>(".dj-video-layer").forEach((video) => {
+      video.currentTime = getDjVideoStartTime(video.duration);
+    });
   }, [song.id]);
 
   useEffect(() => {
@@ -1940,8 +2007,8 @@ export default function Home() {
   }, [liveSupportDjScene?.label, liveSupportDjScene?.performer, liveSupportDjScene?.status, liveSupportDjScene?.video]);
 
   useEffect(() => {
-    const video = document.querySelector<HTMLVideoElement>(".dj-video");
-    setIsVideoReady(Boolean(video?.readyState && video.readyState >= 2));
+    const video = document.querySelector<HTMLVideoElement>(".dj-video-layer.is-current");
+    if (video?.readyState && video.readyState >= 2) markMainDjVideoReady(djVideo);
   }, [djVideo]);
 
   useEffect(() => {
@@ -1957,11 +2024,23 @@ export default function Home() {
     setVoiceLevel(0);
   }, [isPlaying, song.id]);
 
-  function selectSong(index: number) {
+  function focusDjStageOnMobile() {
+    if (!window.matchMedia("(max-width: 640px)").matches) return;
+
+    window.setTimeout(() => {
+      djStageRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }, 80);
+  }
+
+  function selectSong(index: number, focusStage = false) {
     audioRef.current?.pause();
     setActiveIndex(index);
     setProgress(0);
     setIsPlaying(true);
+    if (focusStage) focusDjStageOnMobile();
   }
 
   function togglePlayback() {
@@ -1976,13 +2055,17 @@ export default function Home() {
 
     if (!audio) {
       setIsPlaying(true);
+      focusDjStageOnMobile();
       return;
     }
 
     setAudioStatus("LOADING");
     audio
       .play()
-      .then(() => setIsPlaying(true))
+      .then(() => {
+        setIsPlaying(true);
+        focusDjStageOnMobile();
+      })
       .catch((error: unknown) => {
         setIsPlaying(false);
         setAudioStatus(getAudioPlaybackErrorLabel(error));
@@ -2079,7 +2162,7 @@ export default function Home() {
     audio.currentTime = targetTime;
 
     window.requestAnimationFrame(() => {
-      const video = document.querySelector<HTMLVideoElement>(".dj-video");
+      const video = document.querySelector<HTMLVideoElement>(".dj-video-layer.is-current");
       if (!video?.duration) return;
 
       const targetVideoTime = (targetTime % rotationSeconds) * mainVideoPlaybackRate;
@@ -2747,7 +2830,7 @@ export default function Home() {
                   data-active-song={index === activeIndex ? "true" : undefined}
                   key={item.id}
                 >
-                  <button className="song-card-main" onClick={() => selectSong(index)} type="button">
+                  <button className="song-card-main" onClick={() => selectSong(index, true)} type="button">
                   <span className="song-card-content">
                     <span className="song-cover" style={getCoverStyle(cardSong)}>
                       <span>{getCoverLetters(item.title)}</span>
@@ -2861,7 +2944,11 @@ export default function Home() {
             </details>
           </aside>
 
-          <section className={`dj-stage ${isPlaying ? "is-playing" : ""}`} aria-label="DJ 主視覺">
+          <section
+            className={`dj-stage ${isPlaying ? "is-playing" : ""}`}
+            aria-label="DJ 主視覺"
+            ref={djStageRef}
+          >
             <div className="stage-orbit" aria-hidden="true" />
             <div className="crowd-pulse" aria-hidden="true">
               <span />
@@ -2916,41 +3003,74 @@ export default function Home() {
                 shouldShowDjFallback ? "has-fallback" : ""
               } ${isDjHandoffImminent ? "is-handoff" : ""}`}
             >
-              {shouldRenderMainDjVideo ? (
-                <video
-                  aria-label={isPlaying ? "AI DJ 播放動作影片" : "AI DJ 待機影片"}
-                  autoPlay
-                  className={`dj-video ${isVideoReady ? "is-ready" : ""}`}
-                  key={djVideo}
-                  muted
-                  onError={() => {
-                    setIsVideoReady(false);
-                    markDjVideoFailed(djVideo);
-                  }}
-                  onLoadedData={(event) => {
-                    const targetVideoTime = djRotation.slotElapsed * mainVideoPlaybackRate;
-                    const normalizedTargetTime = Math.min(
-                      targetVideoTime,
-                      Math.max(0, event.currentTarget.duration - 0.12),
+              {shouldRenderMainDjVideo
+                ? mainDjLayerSources.map((source) => {
+                    const isCurrentLayer = source === djVideo;
+                    const isRetainedLayer = source === retainedMainDjVideo && !isCurrentLayer;
+                    const isLayerReady = Boolean(readyMainDjVideos[source]);
+
+                    return (
+                      <video
+                        aria-hidden={!isCurrentLayer}
+                        aria-label={
+                          isCurrentLayer ? (isPlaying ? "AI DJ 播放動作影片" : "AI DJ 待機影片") : undefined
+                        }
+                        autoPlay={isCurrentLayer && isPlaying}
+                        className={`dj-video dj-video-layer ${
+                          isCurrentLayer ? "is-current" : isRetainedLayer ? "is-departing" : "is-buffered"
+                        } ${isLayerReady ? "is-ready" : ""}`}
+                        data-source={source}
+                        key={source}
+                        muted
+                        onError={() => markMainDjVideoFailed(source)}
+                        onLoadedData={(event) => {
+                          if (isRetainedLayer) {
+                            event.currentTarget.pause();
+                            markMainDjVideoReady(source);
+                            return;
+                          }
+
+                          if (!isCurrentLayer) {
+                            event.currentTarget.pause();
+                            const bufferStartTime = getDjVideoStartTime(event.currentTarget.duration);
+
+                            if (bufferStartTime > 0.02 && event.currentTarget.currentTime < 0.02) {
+                              event.currentTarget.currentTime = bufferStartTime;
+                              markMainDjVideoReady(source);
+                              return;
+                            }
+
+                            markMainDjVideoReady(source);
+                            return;
+                          }
+
+                          const targetVideoTime = djRotation.slotElapsed * mainVideoPlaybackRate;
+                          const normalizedTargetTime = Math.min(
+                            targetVideoTime,
+                            Math.max(0, event.currentTarget.duration - 0.12),
+                          );
+
+                          if (normalizedTargetTime > 0.15) {
+                            event.currentTarget.currentTime = normalizedTargetTime;
+                            return;
+                          }
+
+                          if (event.currentTarget.currentTime < 0.02) {
+                            event.currentTarget.currentTime = getDjVideoStartTime(event.currentTarget.duration);
+                            markMainDjVideoReady(source);
+                            return;
+                          }
+
+                          markMainDjVideoReady(source);
+                        }}
+                        onSeeked={() => markMainDjVideoReady(source)}
+                        playsInline
+                        preload="auto"
+                        src={getDjMediaUrl(source)}
+                      />
                     );
-
-                    if (normalizedTargetTime > 0.15) {
-                      event.currentTarget.currentTime = normalizedTargetTime;
-                      return;
-                    }
-
-                    setIsVideoReady(true);
-                    markDjVideoReady(djVideo);
-                  }}
-                  onSeeked={() => {
-                    setIsVideoReady(true);
-                    markDjVideoReady(djVideo);
-                  }}
-                  playsInline
-                  preload="auto"
-                  src={getDjMediaUrl(djVideo)}
-                />
-              ) : null}
+                  })
+                : null}
               {shouldShowDjFallback ? (
                 <div className="dj-media-fallback" aria-label="DJ 影片待機畫面">
                   <span className="fallback-ring" />
@@ -3029,6 +3149,46 @@ export default function Home() {
               <span className="holo-cue">
                 {vocalistCue} / {visualModeLabels[visualMode]}
               </span>
+            </div>
+            <div className="stage-quick-controls" aria-label="舞台快速控制">
+              <div className="stage-quick-track">
+                <span>{song.title}</span>
+                <small>{hasSongs ? `${djSong.bpm} BPM` : "待機"}</small>
+              </div>
+              <div className="stage-quick-actions">
+                <div className="stage-transport-controls">
+                  <button aria-label="上一首" disabled={!hasSongs} onClick={playPreviousSong} title="上一首" type="button">
+                    <SkipBack size={17} />
+                  </button>
+                  <button
+                    aria-label={isPlaying ? "暫停" : "播放"}
+                    className="stage-play-button"
+                    disabled={!hasSongs}
+                    onClick={togglePlayback}
+                    title={isPlaying ? "暫停" : "播放"}
+                    type="button"
+                  >
+                    {isPlaying ? <Pause size={19} /> : <Play fill="currentColor" size={19} />}
+                  </button>
+                  <button aria-label="下一首" disabled={!hasSongs} onClick={playAutoNextSong} title="下一首" type="button">
+                    <SkipForward size={17} />
+                  </button>
+                </div>
+                <div className="stage-mood-switch" aria-label="快速切換曲風">
+                  {playlistFilterOptions.slice(1).map((option) => (
+                    <button
+                      aria-pressed={djSong.mood === option.value}
+                      className={djSong.mood === option.value ? "active" : ""}
+                      disabled={!hasSongs}
+                      key={option.value}
+                      onClick={() => setCurrentMoodOverride(option.value as Song["mood"])}
+                      type="button"
+                    >
+                      {option.value === "tech" ? "電音" : option.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
             <div className="deck">
               <div className="deck-plates" aria-hidden="true">
@@ -3172,7 +3332,7 @@ export default function Home() {
                 下載封面
               </button>
               {recommendedSong && recommendedDjSong ? (
-                <button className="next-fit-button" type="button" onClick={() => selectSong(recommendedIndex)}>
+                <button className="next-fit-button" type="button" onClick={() => selectSong(recommendedIndex, true)}>
                   <SkipForward size={16} />
                   接下一首
                 </button>
