@@ -43,6 +43,16 @@ https://your-cdn.example.com/assets/dj-guest-01.mp4
 
 不建議用 Google Drive 直連影片，因為公開連結與影片分段播放常常不穩。
 
+## 公開首播曲
+
+新訪客的預設歌單會顯示一首公開首播曲。原始下載檔雖然使用 `.mp3` 副檔名，實際容器是 AAC / M4A，因此雲端與本機統一使用：
+
+```text
+starter-tonight-out-of-control.m4a
+```
+
+本機放在 `.local-media/assets`，正式網站放在與 DJ 影片相同的雲端媒體庫。使用 GitHub Release 的 `flat` 模式時，檔案與 MP4 平放在同一層。不要將這支約 22 MB 的音訊加入 Git。
+
 ## 目前播放器會用到的 DJ 影片檔名
 
 ```text

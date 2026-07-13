@@ -29,3 +29,5 @@ export const optionalDjVideos = [
 ];
 
 export const knownDjVideos = [...requiredDjVideos, ...optionalDjVideos];
+
+export const requiredSharedAudio = ["starter-tonight-out-of-control.m4a"];

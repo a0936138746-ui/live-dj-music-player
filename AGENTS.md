@@ -25,6 +25,8 @@
 - `tools/create-dj-media-manifest.mjs`：產生雲端上傳清單。
 - `tools/upload-dj-media-github-release.mjs`：上傳必備 DJ 影片到 GitHub Release。
 
+公開首播曲使用 `starter-tonight-out-of-control.m4a`，與 DJ 影片放在同一個本機或雲端媒體庫。它是新訪客的預設歌曲，但使用者下架、刪除或全部清除後要記住該瀏覽器的選擇，不可在更新後強制復活。
+
 ## 媒體檔規則
 
 不要把大型 MP4 / MP3 直接加入 Git。

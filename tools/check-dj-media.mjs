@@ -1,6 +1,11 @@
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
-import { knownDjVideos, optionalDjVideos, requiredDjVideos } from "./dj-media-config.mjs";
+import {
+  knownDjVideos,
+  optionalDjVideos,
+  requiredDjVideos,
+  requiredSharedAudio,
+} from "./dj-media-config.mjs";
 
 const root = process.cwd();
 const localAssetsDir = path.join(root, ".local-media", "assets");
@@ -77,6 +82,7 @@ function printLocalReport() {
   const missingRequired = requiredDjVideos.filter((file) => !localVideoSet.has(file));
   const optionalLocalVideos = optionalDjVideos.filter((file) => localVideoSet.has(file));
   const unusedLocalVideos = localVideos.filter((file) => !knownDjVideos.includes(file));
+  const missingSharedAudio = requiredSharedAudio.filter((file) => !existsSync(path.join(localAssetsDir, file)));
   const totalSize = localVideos.reduce((sum, file) => sum + statSync(path.join(localAssetsDir, file)).size, 0);
 
   console.log("");
@@ -85,6 +91,7 @@ function printLocalReport() {
   console.log(`Found: ${localVideos.length} MP4 (${formatBytes(totalSize)})`);
   console.log(`Required: ${requiredDjVideos.length}`);
   console.log(`Optional DJ expansion: ${optionalLocalVideos.length}/${optionalDjVideos.length} found`);
+  console.log(`Shared starter audio: ${requiredSharedAudio.length - missingSharedAudio.length}/${requiredSharedAudio.length} found`);
 
   if (missingRequired.length > 0) {
     console.log("");
@@ -98,12 +105,18 @@ function printLocalReport() {
     unusedLocalVideos.forEach((file) => console.log(`- ${file}`));
   }
 
-  if (missingRequired.length === 0) {
+  if (missingSharedAudio.length > 0) {
+    console.log("");
+    console.log("Missing shared starter audio:");
+    missingSharedAudio.forEach((file) => console.log(`- ${file}`));
+  }
+
+  if (missingRequired.length === 0 && missingSharedAudio.length === 0) {
     console.log("");
     console.log("Local DJ media is ready.");
   }
 
-  return missingRequired.length === 0;
+  return missingRequired.length === 0 && missingSharedAudio.length === 0;
 }
 
 async function printCloudReport(baseUrl) {
@@ -119,7 +132,8 @@ async function printCloudReport(baseUrl) {
 
   const results = await Promise.all(requiredDjVideos.map((file) => checkCloudFile(baseUrl, file)));
   const optionalResults = await Promise.all(optionalDjVideos.map((file) => checkCloudFile(baseUrl, file)));
-  const missing = results.filter((result) => !result.ok);
+  const sharedAudioResults = await Promise.all(requiredSharedAudio.map((file) => checkCloudFile(baseUrl, file)));
+  const missing = [...results, ...sharedAudioResults].filter((result) => !result.ok);
   const optionalReady = optionalResults.filter((result) => result.ok);
 
   results.forEach((result, index) => {
@@ -128,6 +142,10 @@ async function printCloudReport(baseUrl) {
   });
 
   console.log(`Optional DJ expansion: ${optionalReady.length}/${optionalDjVideos.length} found`);
+  sharedAudioResults.forEach((result, index) => {
+    const file = requiredSharedAudio[index];
+    console.log(`${result.ok ? "OK" : "MISSING"} ${file} (${result.status})`);
+  });
 
   if (missing.length > 0) {
     console.log("");

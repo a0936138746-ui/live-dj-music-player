@@ -160,6 +160,13 @@ function getMediaUrl(src: string) {
   return getRemoteMediaUrl(src);
 }
 
+function getSongAudioUrl(src: string) {
+  if (/^(blob:|data:|https?:\/\/)/i.test(src)) return src;
+  if (mediaBaseUrl) return getRemoteMediaUrl(src);
+
+  return `/api/local-media${src.startsWith("/") ? src : `/${src}`}`;
+}
+
 function getDjMediaUrl(src: string) {
   if (/^(blob:|data:|https?:\/\/)/i.test(src)) return src;
   if (mediaBaseUrl) return getRemoteMediaUrl(src);
@@ -337,6 +344,29 @@ const analysisConfidenceThreshold = 0.22;
 const localSongDbName = "live-dj-local-songs";
 const localSongStoreName = "songs";
 const playerPreferenceStorageKey = "live-dj-player-preferences";
+const starterSongDispositionStorageKey = "live-dj-starter-song-disposition";
+
+const starterSong: Song = {
+  id: "starter-tonight-out-of-control",
+  title: "今晚全場失控",
+  artist: "2026 超炸 DJ",
+  language: "中文",
+  mood: "tech",
+  bpm: 128,
+  duration: 1375.156,
+  audioSrc: "/assets/starter-tonight-out-of-control.m4a",
+  minAge: 0,
+  accent: "#25f3ff",
+  lyric: ["今晚全場失控", "2026 超炸 DJ 首播曲", "跟著節奏切換 DJ 舞台"],
+  sourceKey: "starter-cloud-v1",
+};
+
+const starterSongAnalysis: AudioAnalysis = {
+  bpm: starterSong.bpm,
+  confidence: 0.86,
+  energy: 0.92,
+  mood: starterSong.mood,
+};
 
 const emptySong: Song = {
   id: "empty",
@@ -962,7 +992,9 @@ export default function Home() {
   const [isGuestVideoReady, setIsGuestVideoReady] = useState(false);
   const [renderedGuestDjScene, setRenderedGuestDjScene] = useState<GuestDjScene | undefined>();
   const [audioStatus, setAudioStatus] = useState("READY");
-  const [analysisById, setAnalysisById] = useState<Record<string, AudioAnalysis>>({});
+  const [analysisById, setAnalysisById] = useState<Record<string, AudioAnalysis>>({
+    [starterSong.id]: starterSongAnalysis,
+  });
   const [analysisStatus, setAnalysisStatus] = useState("SCAN READY");
   const [scanningSongIds, setScanningSongIds] = useState<Record<string, boolean>>({});
   const [moodOverrides, setMoodOverrides] = useState<Record<string, Song["mood"] | "auto">>({});
@@ -986,7 +1018,7 @@ export default function Home() {
   const [age, setAge] = useState(ageOptions[0]);
   const [playlistFilter, setPlaylistFilter] = useState<PlaylistFilter>("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [playlist, setPlaylist] = useState<Song[]>([]);
+  const [playlist, setPlaylist] = useState<Song[]>([starterSong]);
   const [shelvedSongs, setShelvedSongs] = useState<Song[]>([]);
   const [availableDjVideos, setAvailableDjVideos] = useState<Record<string, boolean>>({});
   const [failedDjVideos, setFailedDjVideos] = useState<Record<string, boolean>>({});
@@ -1012,7 +1044,7 @@ export default function Home() {
 
   const hasSongs = playlist.length > 0;
   const song = playlist[activeIndex] ?? emptySong;
-  const songAudioSrc = song.audioSrc ? getMediaUrl(song.audioSrc) : undefined;
+  const songAudioSrc = song.audioSrc ? getSongAudioUrl(song.audioSrc) : undefined;
   const activeAnalysis = analysisById[song.id];
   const moodOverride = moodOverrides[song.id] ?? "auto";
   const bpmOverride = bpmOverrides[song.id];
@@ -1537,6 +1569,22 @@ export default function Home() {
 
     window.localStorage.setItem(playerPreferenceStorageKey, JSON.stringify(preferences));
   }, [age, isMuted, playlistFilter, repeatOne, smartQueueEnabled, volume]);
+
+  useEffect(() => {
+    const disposition = window.localStorage.getItem(starterSongDispositionStorageKey);
+
+    if (disposition === "removed") {
+      setPlaylist((current) => current.filter((item) => item.id !== starterSong.id));
+      return;
+    }
+
+    if (disposition === "shelved") {
+      setPlaylist((current) => current.filter((item) => item.id !== starterSong.id));
+      setShelvedSongs((current) =>
+        current.some((item) => item.id === starterSong.id) ? current : [starterSong, ...current],
+      );
+    }
+  }, []);
 
   useEffect(() => {
     let isCancelled = false;
@@ -2159,7 +2207,11 @@ export default function Home() {
     const nextPlaylist = playlist.filter((_, itemIndex) => itemIndex !== index);
     setPlaylist(nextPlaylist);
     setShelvedSongs((current) => [...current, shelvedSong]);
-    void updateStoredLocalSongShelfStatus(shelvedSong.id, true).catch(() => undefined);
+    if (shelvedSong.id === starterSong.id) {
+      window.localStorage.setItem(starterSongDispositionStorageKey, "shelved");
+    } else {
+      void updateStoredLocalSongShelfStatus(shelvedSong.id, true).catch(() => undefined);
+    }
     void saveStoredPlaylistOrder(nextPlaylist).catch(() => undefined);
     settleActiveIndexAfterRemoval(index);
   }
@@ -2171,7 +2223,11 @@ export default function Home() {
     const nextPlaylist = [...playlist, restoredSong];
     setShelvedSongs((current) => current.filter((_, itemIndex) => itemIndex !== index));
     setPlaylist(nextPlaylist);
-    void updateStoredLocalSongShelfStatus(restoredSong.id, false).catch(() => undefined);
+    if (restoredSong.id === starterSong.id) {
+      window.localStorage.setItem(starterSongDispositionStorageKey, "active");
+    } else {
+      void updateStoredLocalSongShelfStatus(restoredSong.id, false).catch(() => undefined);
+    }
     void saveStoredPlaylistOrder(nextPlaylist).catch(() => undefined);
   }
 
@@ -2183,7 +2239,11 @@ export default function Home() {
     setShelvedSongs([]);
     setPlaylist(nextPlaylist);
     songsToRestore.forEach((item) => {
-      void updateStoredLocalSongShelfStatus(item.id, false).catch(() => undefined);
+      if (item.id === starterSong.id) {
+        window.localStorage.setItem(starterSongDispositionStorageKey, "active");
+      } else {
+        void updateStoredLocalSongShelfStatus(item.id, false).catch(() => undefined);
+      }
     });
     void saveStoredPlaylistOrder(nextPlaylist).catch(() => undefined);
   }
@@ -2213,10 +2273,15 @@ export default function Home() {
     setImportNotice("歌單與下架區已全部清除");
     setIsDraggingFiles(false);
     setAnalysisStatus("SCAN READY");
+    window.localStorage.setItem(starterSongDispositionStorageKey, "removed");
     void clearStoredLocalSongs();
   }
 
   function forgetSong(songToForget: Song) {
+    if (songToForget.id === starterSong.id) {
+      window.localStorage.setItem(starterSongDispositionStorageKey, "removed");
+    }
+
     if (songToForget.audioSrc?.startsWith("blob:")) {
       URL.revokeObjectURL(songToForget.audioSrc);
     }
@@ -3111,6 +3176,7 @@ export default function Home() {
         <section className={`control-panel ${isPlaying ? "is-playing" : ""}`} aria-label="播放控制">
           {songAudioSrc ? (
             <audio
+              crossOrigin={/^https?:\/\//i.test(songAudioSrc) ? "anonymous" : undefined}
               key={song.id}
               ref={audioRef}
               onCanPlay={() => setAudioStatus("READY")}
