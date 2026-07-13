@@ -2984,6 +2984,21 @@ export default function Home() {
                 ))}
               </div>
             </div>
+            <div className="mobile-stage-hud" aria-hidden="true">
+              <span className={`mobile-live-state ${isPlaying ? "is-live" : ""}`}>
+                <i />
+                {isPlaying ? "LIVE" : "READY"}
+              </span>
+              <span className="mobile-stage-format">{getMoodLabel(djSong.mood)}</span>
+              <span className="mobile-energy-meter">
+                <i />
+                <i />
+                <i />
+                <i />
+                <i />
+                <i />
+              </span>
+            </div>
             <div className={`stage-director performer-${directorScene.mainPerformer}`} aria-live="polite">
               <span>MAIN DECK</span>
               <strong>{mainDjName}</strong>
@@ -3155,6 +3170,9 @@ export default function Home() {
                 <span>{song.title}</span>
                 <small>{hasSongs ? `${djSong.bpm} BPM` : "待機"}</small>
               </div>
+              <span className="stage-mini-progress" aria-hidden="true">
+                <span style={{ width: `${hasSongs ? progress : 0}%` }} />
+              </span>
               <div className="stage-quick-actions">
                 <div className="stage-transport-controls">
                   <button aria-label="上一首" disabled={!hasSongs} onClick={playPreviousSong} title="上一首" type="button">

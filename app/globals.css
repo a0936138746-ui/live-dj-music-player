@@ -2191,7 +2191,8 @@ h1 {
   backdrop-filter: blur(8px);
 }
 
-.stage-quick-controls {
+.stage-quick-controls,
+.mobile-stage-hud {
   display: none;
 }
 
@@ -4222,6 +4223,29 @@ h1 {
   }
 }
 
+@keyframes mobile-live-pulse {
+  0%,
+  100% {
+    opacity: 0.48;
+    transform: scale(0.86);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1.08);
+  }
+}
+
+@keyframes mobile-meter-rise {
+  from {
+    transform: scaleY(0.38);
+  }
+
+  to {
+    transform: scaleY(1);
+  }
+}
+
 @media (max-width: 980px) {
   .hero-grid {
     grid-template-columns: 1fr;
@@ -4275,8 +4299,13 @@ h1 {
 
 @media (max-width: 640px) {
   .player-shell {
-    padding: 16px;
-    padding-bottom: 156px;
+    padding: 12px;
+    padding-bottom: 154px;
+    background:
+      linear-gradient(90deg, transparent 0 48%, rgba(255, 255, 255, 0.025) 49% 51%, transparent 52%),
+      repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.018) 0 1px, transparent 1px 6px),
+      radial-gradient(circle at 18% 8%, color-mix(in srgb, var(--accent) 24%, transparent), transparent 28%),
+      linear-gradient(160deg, #07090e 0%, #10131b 52%, #08090d 100%);
   }
 
   .topbar,
@@ -4285,9 +4314,29 @@ h1 {
     flex-direction: column;
   }
 
+  .topbar {
+    gap: 10px;
+    padding: 0 0 12px;
+  }
+
+  .topbar > div:first-child {
+    display: grid;
+    gap: 3px;
+  }
+
+  .topbar .kicker {
+    margin: 0;
+    font-size: 0.64rem;
+    letter-spacing: 0;
+  }
+
   h1 {
-    font-size: 1.72rem;
-    line-height: 1.08;
+    font-size: 1.46rem;
+    line-height: 1.06;
+  }
+
+  .hero-grid {
+    gap: 12px;
   }
 
   .control-topline,
@@ -4311,14 +4360,82 @@ h1 {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     align-items: end;
+    gap: 7px;
+  }
+
+  .add-song-button,
+  .reset-list-button {
+    min-height: 38px;
+    padding: 0 10px;
+    font-size: 0.78rem;
   }
 
   .age-filter {
     grid-column: 1 / -1;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    font-size: 0.7rem;
+  }
+
+  .age-filter select {
+    min-height: 36px;
+    padding: 7px 10px;
+    font-size: 0.76rem;
   }
 
   .song-list {
     grid-template-columns: 1fr;
+    max-height: none;
+    overflow: visible;
+    gap: 8px;
+    padding: 10px;
+    border-color: color-mix(in srgb, var(--accent) 22%, rgba(255, 255, 255, 0.12));
+    background:
+      linear-gradient(180deg, color-mix(in srgb, var(--accent) 6%, transparent), transparent 120px),
+      rgba(11, 14, 20, 0.78);
+    box-shadow: 0 18px 46px rgba(0, 0, 0, 0.3);
+  }
+
+  .playlist-meta {
+    padding: 2px 2px 5px;
+  }
+
+  .playlist-search {
+    min-height: 38px;
+    padding: 8px 10px;
+    background: rgba(0, 0, 0, 0.28);
+  }
+
+  .playlist-filters button {
+    min-height: 36px;
+  }
+
+  .playlist-insights span {
+    padding: 7px;
+    background: rgba(255, 255, 255, 0.035);
+  }
+
+  .song-card {
+    min-height: 0;
+    gap: 8px;
+    padding: 11px;
+    background:
+      linear-gradient(110deg, color-mix(in srgb, var(--accent) 8%, transparent), transparent 54%),
+      rgba(255, 255, 255, 0.045);
+  }
+
+  .song-card.active {
+    box-shadow:
+      inset 0 0 24px color-mix(in srgb, var(--accent) 8%, transparent),
+      0 10px 26px rgba(0, 0, 0, 0.24);
+    transform: none;
+  }
+
+  .now-panel {
+    max-height: none;
+    overflow: visible;
   }
 
   .song-card-actions {
@@ -4326,12 +4443,152 @@ h1 {
   }
 
   .dj-stage {
-    min-height: 520px;
+    min-height: 536px;
     scroll-margin-top: 10px;
+    border-color: color-mix(in srgb, var(--accent) 48%, rgba(255, 255, 255, 0.12));
+    background-size: 30px 30px, 30px 30px, auto, auto;
+    box-shadow:
+      inset 0 0 0 1px rgba(255, 255, 255, 0.035),
+      inset 0 -70px 90px rgba(0, 0, 0, 0.44),
+      0 18px 52px rgba(0, 0, 0, 0.42),
+      0 0 34px color-mix(in srgb, var(--accent) 12%, transparent);
+  }
+
+  .dj-stage::after {
+    background:
+      linear-gradient(90deg, rgba(255, 255, 255, 0.09), transparent 11%, transparent 89%, rgba(255, 255, 255, 0.09)),
+      repeating-linear-gradient(180deg, transparent 0 5px, rgba(255, 255, 255, 0.018) 5px 6px),
+      radial-gradient(circle at 50% 82%, color-mix(in srgb, var(--accent) 32%, transparent), transparent 36%);
+  }
+
+  .dj-stage.is-playing {
+    border-color: color-mix(in srgb, var(--accent) 72%, white 8%);
+    box-shadow:
+      inset 0 0 0 1px color-mix(in srgb, var(--accent) 14%, transparent),
+      inset 0 -70px 100px rgba(0, 0, 0, 0.36),
+      0 20px 58px rgba(0, 0, 0, 0.46),
+      0 0 38px color-mix(in srgb, var(--accent) 22%, transparent);
+  }
+
+  .mobile-stage-hud {
+    position: absolute;
+    top: 11px;
+    left: 11px;
+    z-index: 8;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 29px;
+    border: 1px solid color-mix(in srgb, var(--accent) 38%, rgba(255, 255, 255, 0.12));
+    border-radius: 7px;
+    padding: 5px 7px;
+    background: rgba(4, 7, 12, 0.7);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+    color: var(--text);
+    backdrop-filter: blur(10px);
+  }
+
+  .mobile-live-state,
+  .mobile-stage-format {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.57rem;
+    font-weight: 950;
+    letter-spacing: 0;
+  }
+
+  .mobile-live-state {
+    color: var(--muted);
+  }
+
+  .mobile-live-state i {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.34);
+  }
+
+  .mobile-live-state.is-live {
+    color: #fff;
+  }
+
+  .mobile-live-state.is-live i {
+    background: #ff4f8b;
+    box-shadow: 0 0 12px #ff4f8b;
+    animation: mobile-live-pulse 1.2s ease-in-out infinite;
+  }
+
+  .mobile-stage-format {
+    color: var(--accent);
+  }
+
+  .mobile-energy-meter {
+    display: flex;
+    align-items: flex-end;
+    gap: 2px;
+    width: 29px;
+    height: 12px;
+  }
+
+  .mobile-energy-meter i {
+    width: 3px;
+    height: 32%;
+    border-radius: 1px;
+    background: linear-gradient(180deg, var(--beam-three), var(--accent));
+    opacity: 0.5;
+    transform-origin: center bottom;
+  }
+
+  .mobile-energy-meter i:nth-child(2),
+  .mobile-energy-meter i:nth-child(5) {
+    height: 68%;
+  }
+
+  .mobile-energy-meter i:nth-child(3) {
+    height: 100%;
+  }
+
+  .mobile-energy-meter i:nth-child(4) {
+    height: 48%;
+  }
+
+  .dj-stage.is-playing .mobile-energy-meter i {
+    animation: mobile-meter-rise var(--eq-ms) ease-in-out infinite alternate;
+    opacity: 0.95;
+  }
+
+  .dj-stage.is-playing .mobile-energy-meter i:nth-child(2) {
+    animation-delay: 90ms;
+  }
+
+  .dj-stage.is-playing .mobile-energy-meter i:nth-child(3) {
+    animation-delay: 180ms;
+  }
+
+  .dj-stage.is-playing .mobile-energy-meter i:nth-child(4) {
+    animation-delay: 60ms;
+  }
+
+  .dj-stage.is-playing .mobile-energy-meter i:nth-child(5) {
+    animation-delay: 140ms;
+  }
+
+  .stage-director {
+    top: 11px;
+    right: 11px;
+    min-width: 92px;
+    padding: 6px 8px;
+    background: rgba(4, 7, 12, 0.7);
+  }
+
+  .stage-switch-flash {
+    top: 48px;
+    left: 11px;
   }
 
   .dj-motion {
-    bottom: 184px;
+    bottom: 188px;
     width: 94%;
   }
 
@@ -4364,13 +4621,18 @@ h1 {
     left: 8px;
     z-index: 8;
     display: grid;
-    gap: 7px;
-    border: 1px solid color-mix(in srgb, var(--accent) 42%, rgba(255, 255, 255, 0.14));
+    gap: 6px;
+    border: 1px solid color-mix(in srgb, var(--accent) 56%, rgba(255, 255, 255, 0.14));
     border-radius: 8px;
     padding: 8px 10px;
-    background: rgba(4, 7, 12, 0.78);
-    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.34);
-    backdrop-filter: blur(12px);
+    background:
+      linear-gradient(100deg, color-mix(in srgb, var(--accent) 13%, transparent), transparent 52%),
+      rgba(4, 7, 12, 0.86);
+    box-shadow:
+      0 12px 32px rgba(0, 0, 0, 0.42),
+      inset 0 1px rgba(255, 255, 255, 0.055),
+      0 0 22px color-mix(in srgb, var(--accent) 11%, transparent);
+    backdrop-filter: blur(16px);
   }
 
   .stage-quick-track {
@@ -4383,7 +4645,7 @@ h1 {
   .stage-quick-track span {
     overflow: hidden;
     color: var(--text);
-    font-size: 0.72rem;
+    font-size: 0.74rem;
     font-weight: 900;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -4393,6 +4655,25 @@ h1 {
     color: var(--accent);
     font-size: 0.65rem;
     font-weight: 900;
+  }
+
+  .stage-mini-progress {
+    position: relative;
+    display: block;
+    overflow: hidden;
+    width: 100%;
+    height: 2px;
+    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.1);
+  }
+
+  .stage-mini-progress > span {
+    position: absolute;
+    inset: 0 auto 0 0;
+    border-radius: inherit;
+    background: linear-gradient(90deg, var(--accent), var(--beam-three));
+    box-shadow: 0 0 10px var(--accent);
+    transition: width 180ms linear;
   }
 
   .stage-quick-actions {
@@ -4415,9 +4696,10 @@ h1 {
     min-width: 0;
     border: 1px solid color-mix(in srgb, var(--accent) 30%, rgba(255, 255, 255, 0.13));
     border-radius: 7px;
-    background: rgba(255, 255, 255, 0.06);
+    background: rgba(255, 255, 255, 0.055);
     color: var(--muted);
     place-items: center;
+    transition: border-color 140ms ease, background 140ms ease, color 140ms ease, transform 140ms ease;
   }
 
   .stage-transport-controls button {
@@ -4428,8 +4710,9 @@ h1 {
 
   .stage-transport-controls .stage-play-button {
     border-color: var(--accent);
-    background: color-mix(in srgb, var(--accent) 18%, rgba(255, 255, 255, 0.06));
-    color: var(--text);
+    background: var(--accent);
+    box-shadow: 0 0 18px color-mix(in srgb, var(--accent) 38%, transparent);
+    color: #050608;
   }
 
   .stage-mood-switch {
@@ -4449,6 +4732,11 @@ h1 {
     background: color-mix(in srgb, var(--accent) 22%, rgba(255, 255, 255, 0.05));
     color: var(--text);
     box-shadow: 0 0 16px color-mix(in srgb, var(--accent) 18%, transparent);
+  }
+
+  .stage-transport-controls button:active,
+  .stage-mood-switch button:active {
+    transform: scale(0.94);
   }
 
   .stage-transport-controls button:disabled,
@@ -4484,17 +4772,62 @@ h1 {
   }
 
   .transport-console {
-    bottom: 8px;
+    bottom: max(8px, env(safe-area-inset-bottom));
     grid-template-columns: 1fr;
-    gap: 8px;
+    gap: 7px;
     width: calc(100% - 16px);
-    padding: 9px 10px;
+    border-color: color-mix(in srgb, var(--accent) 52%, rgba(255, 255, 255, 0.14));
+    padding: 8px 10px 9px;
+    background:
+      linear-gradient(100deg, color-mix(in srgb, var(--accent) 13%, transparent), transparent 48%),
+      rgba(6, 9, 14, 0.94);
+    box-shadow:
+      0 18px 48px rgba(0, 0, 0, 0.62),
+      inset 0 1px rgba(255, 255, 255, 0.06),
+      0 0 24px color-mix(in srgb, var(--accent) 13%, transparent);
+    backdrop-filter: blur(24px);
+  }
+
+  .transport-console::before {
+    position: absolute;
+    top: -1px;
+    right: 18%;
+    left: 18%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    content: "";
+    opacity: 0.78;
   }
 
   .transport-track {
-    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-columns: auto minmax(0, 1fr) auto;
     align-items: center;
     gap: 8px;
+  }
+
+  .transport-track > span {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .transport-track > strong {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .transport-track::after {
+    min-width: 34px;
+    border: 1px solid color-mix(in srgb, var(--accent) 34%, rgba(255, 255, 255, 0.12));
+    border-radius: 6px;
+    padding: 4px 5px;
+    background: color-mix(in srgb, var(--accent) 10%, rgba(255, 255, 255, 0.035));
+    color: var(--accent);
+    content: "DJ";
+    grid-column: 3;
+    grid-row: 1;
+    font-size: 0.54rem;
+    font-weight: 950;
+    text-align: center;
   }
 
   .transport-track small {
@@ -4503,7 +4836,7 @@ h1 {
 
   .transport-main {
     grid-template-columns: 1fr;
-    gap: 7px;
+    gap: 6px;
   }
 
   .transport-main .controls {
@@ -4515,12 +4848,44 @@ h1 {
   }
 
   .transport-console .controls button {
-    width: 40px;
-    height: 40px;
+    width: 38px;
+    height: 38px;
+    background: rgba(255, 255, 255, 0.055);
   }
 
   .transport-console .controls .play-button {
-    width: 48px;
-    height: 48px;
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    box-shadow:
+      0 0 0 4px color-mix(in srgb, var(--accent) 10%, transparent),
+      0 0 22px color-mix(in srgb, var(--accent) 42%, transparent);
+  }
+
+  .transport-console .progress-row {
+    grid-template-columns: 40px minmax(0, 1fr) 40px;
+    gap: 8px;
+    font-size: 0.68rem;
+  }
+
+  .transport-console .progress-row input {
+    height: 18px;
+  }
+
+  .transport-console .controls button:active {
+    transform: scale(0.93);
+  }
+}
+
+@media (max-width: 640px) and (prefers-reduced-motion: reduce) {
+  .mobile-live-state.is-live i,
+  .dj-stage.is-playing .mobile-energy-meter i {
+    animation: none;
+  }
+
+  .stage-mini-progress > span,
+  .stage-transport-controls button,
+  .stage-mood-switch button {
+    transition: none;
   }
 }
