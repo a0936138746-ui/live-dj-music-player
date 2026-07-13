@@ -1714,7 +1714,10 @@ export default function Home() {
 
     if (isPlaying) {
       audioContextRef.current?.resume().catch(() => undefined);
-      audio.play().catch(() => undefined);
+      audio.play().catch(() => {
+        setIsPlaying(false);
+        setAudioStatus("ERROR");
+      });
       return;
     }
 
@@ -1762,7 +1765,7 @@ export default function Home() {
       if (event.code === "Space") {
         event.preventDefault();
         if (!playlist.length) return;
-        setIsPlaying((current) => !current);
+        togglePlayback();
       }
 
       if (event.code === "ArrowRight") {
@@ -1960,6 +1963,31 @@ export default function Home() {
     setActiveIndex(index);
     setProgress(0);
     setIsPlaying(true);
+  }
+
+  function togglePlayback() {
+    if (!hasSongs) return;
+
+    const audio = audioRef.current;
+    if (isPlaying) {
+      audio?.pause();
+      setIsPlaying(false);
+      return;
+    }
+
+    if (!audio) {
+      setIsPlaying(true);
+      return;
+    }
+
+    setAudioStatus("LOADING");
+    audio
+      .play()
+      .then(() => setIsPlaying(true))
+      .catch(() => {
+        setIsPlaying(false);
+        setAudioStatus("ERROR");
+      });
   }
 
   function moveSong(direction: number) {
@@ -3359,7 +3387,7 @@ export default function Home() {
                   aria-label={isPlaying ? "暫停" : "播放"}
                   className="play-button"
                   disabled={!hasSongs}
-                  onClick={() => setIsPlaying((current) => !current)}
+                  onClick={togglePlayback}
                   type="button"
                 >
                   {isPlaying ? <Pause size={26} /> : <Play size={26} />}
