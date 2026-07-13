@@ -4246,6 +4246,33 @@ h1 {
   }
 }
 
+@keyframes mobile-title-glow {
+  0%,
+  100% {
+    text-shadow:
+      0 0 12px color-mix(in srgb, var(--accent) 28%, transparent),
+      0 0 24px rgba(255, 79, 139, 0.12);
+  }
+
+  50% {
+    text-shadow:
+      0 0 16px color-mix(in srgb, var(--accent) 52%, transparent),
+      0 0 34px rgba(255, 79, 139, 0.22),
+      0 0 46px color-mix(in srgb, var(--beam-three) 18%, transparent);
+  }
+}
+
+@keyframes mobile-panel-breathe {
+  0%,
+  100% {
+    opacity: 0.42;
+  }
+
+  50% {
+    opacity: 0.9;
+  }
+}
+
 @media (max-width: 980px) {
   .hero-grid {
     grid-template-columns: 1fr;
@@ -4333,6 +4360,71 @@ h1 {
   h1 {
     font-size: 1.46rem;
     line-height: 1.06;
+    color: #fff;
+    text-shadow:
+      0 0 12px color-mix(in srgb, var(--accent) 34%, transparent),
+      0 0 26px rgba(255, 79, 139, 0.14);
+  }
+
+  .player-shell.is-playing h1 {
+    animation: mobile-title-glow calc(var(--beat-ms) * 8) ease-in-out infinite;
+  }
+
+  .topbar .kicker {
+    text-shadow: 0 0 12px color-mix(in srgb, var(--accent) 54%, transparent);
+  }
+
+  .add-song-button,
+  .reset-list-button,
+  .age-filter select {
+    box-shadow:
+      inset 0 1px rgba(255, 255, 255, 0.07),
+      0 0 14px color-mix(in srgb, var(--accent) 10%, transparent);
+    transition: border-color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
+  }
+
+  .add-song-button {
+    border-color: color-mix(in srgb, var(--accent) 58%, white 8%);
+    background:
+      linear-gradient(105deg, color-mix(in srgb, var(--accent) 20%, transparent), transparent 64%),
+      rgba(255, 255, 255, 0.055);
+    color: #fff;
+  }
+
+  .reset-list-button {
+    border-color: rgba(255, 79, 139, 0.5);
+    background:
+      linear-gradient(105deg, rgba(255, 79, 139, 0.16), transparent 64%),
+      rgba(255, 255, 255, 0.045);
+    box-shadow:
+      inset 0 1px rgba(255, 255, 255, 0.06),
+      0 0 14px rgba(255, 79, 139, 0.1);
+  }
+
+  .add-song-button svg,
+  .reset-list-button svg {
+    filter: drop-shadow(0 0 6px currentColor);
+  }
+
+  .add-song-button:active,
+  .reset-list-button:active {
+    box-shadow:
+      inset 0 0 18px color-mix(in srgb, var(--accent) 20%, transparent),
+      0 0 22px color-mix(in srgb, var(--accent) 24%, transparent);
+    transform: scale(0.97);
+  }
+
+  .age-filter span {
+    color: color-mix(in srgb, var(--accent) 76%, white 24%);
+    text-shadow: 0 0 10px color-mix(in srgb, var(--accent) 34%, transparent);
+  }
+
+  .age-filter select:focus-visible,
+  button:focus-visible,
+  .add-song-button:focus-within {
+    outline: 2px solid color-mix(in srgb, var(--accent) 74%, white 12%);
+    outline-offset: 2px;
+    box-shadow: 0 0 22px color-mix(in srgb, var(--accent) 34%, transparent);
   }
 
   .hero-grid {
@@ -4436,6 +4528,164 @@ h1 {
   .now-panel {
     max-height: none;
     overflow: visible;
+  }
+
+  .song-list,
+  .now-panel,
+  .control-panel {
+    isolation: isolate;
+    position: relative;
+    border-color: color-mix(in srgb, var(--accent) 34%, rgba(255, 255, 255, 0.12));
+    box-shadow:
+      inset 0 1px rgba(255, 255, 255, 0.045),
+      inset 1px 0 color-mix(in srgb, var(--accent) 12%, transparent),
+      inset -1px 0 rgba(255, 79, 139, 0.09),
+      0 18px 48px rgba(0, 0, 0, 0.34),
+      0 0 24px color-mix(in srgb, var(--accent) 8%, transparent);
+  }
+
+  .song-list::after,
+  .now-panel::after,
+  .control-panel::after {
+    position: absolute;
+    top: -1px;
+    right: 13%;
+    left: 13%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--accent), rgba(255, 79, 139, 0.92), transparent);
+    box-shadow: 0 0 14px color-mix(in srgb, var(--accent) 46%, transparent);
+    content: "";
+    opacity: 0.56;
+    pointer-events: none;
+  }
+
+  .player-shell.is-playing .song-list::after,
+  .player-shell.is-playing .now-panel::after,
+  .player-shell.is-playing .control-panel::after {
+    animation: mobile-panel-breathe calc(var(--beat-ms) * 8) ease-in-out infinite;
+  }
+
+  .playlist-meta,
+  .now-panel .kicker,
+  .control-panel .kicker {
+    color: color-mix(in srgb, var(--accent) 64%, var(--muted));
+    text-shadow: 0 0 10px color-mix(in srgb, var(--accent) 28%, transparent);
+  }
+
+  .now-panel h2,
+  .control-panel h2,
+  .song-card-info > strong,
+  .transport-track strong {
+    color: #fff;
+    text-shadow:
+      0 0 10px color-mix(in srgb, var(--accent) 18%, transparent),
+      0 0 18px rgba(255, 79, 139, 0.07);
+  }
+
+  .playlist-search,
+  .lyrics-strip,
+  .now-status,
+  .mapping-readout span,
+  .control-focus-strip > * {
+    border-color: color-mix(in srgb, var(--accent) 24%, rgba(255, 255, 255, 0.1));
+    box-shadow:
+      inset 0 0 18px color-mix(in srgb, var(--accent) 4%, transparent),
+      0 0 12px color-mix(in srgb, var(--accent) 5%, transparent);
+  }
+
+  .playlist-search:focus-within {
+    border-color: color-mix(in srgb, var(--accent) 64%, white 8%);
+    box-shadow:
+      inset 0 0 20px color-mix(in srgb, var(--accent) 8%, transparent),
+      0 0 18px color-mix(in srgb, var(--accent) 20%, transparent);
+  }
+
+  .song-list button:not(.song-card-main),
+  .now-panel button,
+  .control-panel button {
+    box-shadow:
+      inset 0 1px rgba(255, 255, 255, 0.04),
+      0 0 12px color-mix(in srgb, var(--accent) 5%, transparent);
+  }
+
+  .song-list button:not(.song-card-main):active,
+  .now-panel button:active,
+  .control-panel button:active {
+    border-color: color-mix(in srgb, var(--accent) 66%, white 8%);
+    box-shadow:
+      inset 0 0 18px color-mix(in srgb, var(--accent) 16%, transparent),
+      0 0 20px color-mix(in srgb, var(--accent) 22%, transparent);
+  }
+
+  .playlist-filters button.active,
+  .style-buttons button.active,
+  .controls button.active {
+    text-shadow: 0 0 10px currentColor;
+    box-shadow:
+      inset 0 0 18px color-mix(in srgb, var(--accent) 16%, transparent),
+      0 0 18px color-mix(in srgb, var(--accent) 22%, transparent);
+  }
+
+  .song-cover,
+  .now-cover {
+    box-shadow:
+      inset 0 0 24px rgba(255, 255, 255, 0.1),
+      0 0 18px color-mix(in srgb, var(--cover-accent) 24%, transparent),
+      0 0 28px color-mix(in srgb, var(--cover-secondary) 10%, transparent);
+  }
+
+  .song-card.active {
+    border-color: color-mix(in srgb, var(--accent) 72%, white 8%);
+    box-shadow:
+      inset 0 0 26px color-mix(in srgb, var(--accent) 10%, transparent),
+      0 12px 30px rgba(0, 0, 0, 0.3),
+      0 0 22px color-mix(in srgb, var(--accent) 16%, transparent);
+  }
+
+  .player-shell.is-playing .song-card.active .song-cover,
+  .player-shell.is-playing .now-cover {
+    filter: saturate(1.08) drop-shadow(0 0 9px color-mix(in srgb, var(--accent) 24%, transparent));
+  }
+
+  .song-list svg,
+  .now-panel button svg,
+  .control-panel button svg,
+  .transport-console button svg {
+    filter: drop-shadow(0 0 5px currentColor);
+  }
+
+  .song-language,
+  .song-card-foot span,
+  .now-quick-stats strong,
+  .playback-stats strong,
+  .control-badges span,
+  .dj-lineup-panel strong,
+  .stage-quick-track small,
+  .transport-track > span {
+    text-shadow: 0 0 9px currentColor;
+  }
+
+  .now-quick-stats span,
+  .playback-stats span,
+  .dj-lineup-panel,
+  .queue-next-card {
+    border-color: color-mix(in srgb, var(--accent) 28%, rgba(255, 255, 255, 0.1));
+    box-shadow:
+      inset 0 0 16px color-mix(in srgb, var(--accent) 5%, transparent),
+      0 0 12px color-mix(in srgb, var(--accent) 6%, transparent);
+  }
+
+  .player-shell.is-playing .transport-console,
+  .player-shell.is-playing .stage-quick-controls {
+    box-shadow:
+      0 16px 44px rgba(0, 0, 0, 0.52),
+      inset 0 1px rgba(255, 255, 255, 0.07),
+      0 0 28px color-mix(in srgb, var(--accent) 22%, transparent),
+      0 0 44px rgba(255, 79, 139, 0.08);
+  }
+
+  input[type="range"] {
+    filter: drop-shadow(0 0 5px color-mix(in srgb, var(--accent) 42%, transparent));
   }
 
   .song-card-actions {
@@ -4878,6 +5128,10 @@ h1 {
 }
 
 @media (max-width: 640px) and (prefers-reduced-motion: reduce) {
+  .player-shell.is-playing h1,
+  .player-shell.is-playing .song-list::after,
+  .player-shell.is-playing .now-panel::after,
+  .player-shell.is-playing .control-panel::after,
   .mobile-live-state.is-live i,
   .dj-stage.is-playing .mobile-energy-meter i {
     animation: none;

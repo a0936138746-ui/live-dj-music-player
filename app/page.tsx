@@ -2664,6 +2664,8 @@ export default function Home() {
     <main
       className={`player-shell mood-${djSong.mood} ${energyClass} ${audioKick && isPlaying ? "audio-kick" : ""} ${
         isDraggingFiles ? "is-dragging-files" : ""
+      } ${
+        isPlaying ? "is-playing" : ""
       }`}
       onDragLeave={handleFileDragLeave}
       onDragOver={handleFileDragOver}
