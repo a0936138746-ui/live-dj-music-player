@@ -1678,6 +1678,12 @@ export default function Home() {
       return;
     }
 
+    if (song.id === starterSong.id) {
+      stopLiveAudioLoop();
+      resetLiveAudioMetrics();
+      return;
+    }
+
     try {
       setupLiveAudioAnalyzer();
       stopLiveAudioLoop();
@@ -3176,7 +3182,6 @@ export default function Home() {
         <section className={`control-panel ${isPlaying ? "is-playing" : ""}`} aria-label="播放控制">
           {songAudioSrc ? (
             <audio
-              crossOrigin={/^https?:\/\//i.test(songAudioSrc) ? "anonymous" : undefined}
               key={song.id}
               ref={audioRef}
               onCanPlay={() => setAudioStatus("READY")}

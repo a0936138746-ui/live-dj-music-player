@@ -53,6 +53,8 @@ starter-tonight-out-of-control.m4a
 
 本機放在 `.local-media/assets`，正式網站放在與 DJ 影片相同的雲端媒體庫。使用 GitHub Release 的 `flat` 模式時，檔案與 MP4 平放在同一層。不要將這支約 22 MB 的音訊加入 Git。
 
+GitHub Release 資產沒有供 Web Audio 使用的 CORS 標頭，因此首播曲直接由 `<audio>` 串流播放，使用預設 BPM / 能量與節拍模擬驅動舞台；不要對它加上 `crossOrigin="anonymous"`，否則瀏覽器會拒絕載入。
+
 ## 目前播放器會用到的 DJ 影片檔名
 
 ```text
