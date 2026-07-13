@@ -162,6 +162,7 @@ function getMediaUrl(src: string) {
 
 function getSongAudioUrl(src: string) {
   if (/^(blob:|data:|https?:\/\/)/i.test(src)) return src;
+  if (src.startsWith("/api/")) return src;
   if (mediaBaseUrl) return getRemoteMediaUrl(src);
 
   return `/api/local-media${src.startsWith("/") ? src : `/${src}`}`;
@@ -358,7 +359,7 @@ const starterSong: Song = {
   mood: "tech",
   bpm: 128,
   duration: 1375.156,
-  audioSrc: "/assets/starter-tonight-out-of-control.m4a",
+  audioSrc: "/api/starter-track",
   minAge: 0,
   accent: "#25f3ff",
   lyric: ["今晚全場失控", "2026 超炸 DJ 首播曲", "跟著節奏切換 DJ 舞台"],
@@ -1677,12 +1678,6 @@ export default function Home() {
 
   useEffect(() => {
     if (!isPlaying || !hasAudio) {
-      stopLiveAudioLoop();
-      resetLiveAudioMetrics();
-      return;
-    }
-
-    if (song.id === starterSong.id) {
       stopLiveAudioLoop();
       resetLiveAudioMetrics();
       return;
