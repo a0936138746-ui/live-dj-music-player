@@ -179,6 +179,10 @@ function getSingerFrameSrc(mode: VisualMode, frameIndex: number) {
   return getMediaUrl(`/assets/holo-singer-frames/${mode}/${mode}-${frameNumber}.png`);
 }
 
+function getAudioPlaybackErrorLabel(error: unknown) {
+  return error instanceof DOMException ? error.name.toUpperCase() : "ERROR";
+}
+
 function getSingerFrameSources(mode: VisualMode) {
   return Array.from({ length: singerAnimationConfig[mode].frameCount }, (_, index) => getSingerFrameSrc(mode, index));
 }
@@ -1714,9 +1718,9 @@ export default function Home() {
 
     if (isPlaying) {
       audioContextRef.current?.resume().catch(() => undefined);
-      audio.play().catch(() => {
+      audio.play().catch((error: unknown) => {
         setIsPlaying(false);
-        setAudioStatus("ERROR");
+        setAudioStatus(getAudioPlaybackErrorLabel(error));
       });
       return;
     }
@@ -1984,9 +1988,9 @@ export default function Home() {
     audio
       .play()
       .then(() => setIsPlaying(true))
-      .catch(() => {
+      .catch((error: unknown) => {
         setIsPlaying(false);
-        setAudioStatus("ERROR");
+        setAudioStatus(getAudioPlaybackErrorLabel(error));
       });
   }
 
