@@ -3,8 +3,11 @@
 import {
   ArrowDown,
   ArrowUp,
+  Info,
+  ListMusic,
   Pause,
   Play,
+  Radio,
   Repeat,
   Repeat1,
   RotateCcw,
@@ -75,6 +78,7 @@ type VisualMode =
 
 type SingerDanceProfile = "soft" | "groove" | "hype" | "drop";
 type PlaylistFilter = "all" | Song["mood"];
+type MobileSection = "stage" | "playlist" | "now";
 type ScanStatusTone = "auto" | "manual" | "fallback" | "pending" | "scanning";
 type GuestDjStatus = "entering" | "live" | "exiting" | "encore";
 type GuestDjCue = {
@@ -1030,6 +1034,7 @@ export default function Home() {
   const [age, setAge] = useState(ageOptions[0]);
   const [playlistFilter, setPlaylistFilter] = useState<PlaylistFilter>("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [mobileSection, setMobileSection] = useState<MobileSection>("stage");
   const [playlist, setPlaylist] = useState<Song[]>([starterSong]);
   const [shelvedSongs, setShelvedSongs] = useState<Song[]>([]);
   const [availableDjVideos, setAvailableDjVideos] = useState<Record<string, boolean>>({});
@@ -1037,6 +1042,8 @@ export default function Home() {
   const [didCheckDjVideos, setDidCheckDjVideos] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
   const djStageRef = useRef<HTMLElement>(null);
+  const playlistPanelRef = useRef<HTMLElement>(null);
+  const nowPanelRef = useRef<HTMLElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
@@ -1957,6 +1964,8 @@ export default function Home() {
   }, [song.id]);
 
   useEffect(() => {
+    if (window.matchMedia("(max-width: 640px)").matches) return;
+
     const activeCard = document.querySelector<HTMLElement>("[data-active-song='true']");
     activeCard?.scrollIntoView({
       behavior: "smooth",
@@ -2024,10 +2033,56 @@ export default function Home() {
     setVoiceLevel(0);
   }, [isPlaying, song.id]);
 
+  useEffect(() => {
+    if (!window.matchMedia("(max-width: 640px)").matches) return;
+
+    const targets = [
+      { element: djStageRef.current, section: "stage" as const },
+      { element: playlistPanelRef.current, section: "playlist" as const },
+      { element: nowPanelRef.current, section: "now" as const },
+    ].filter((target): target is { element: HTMLElement; section: MobileSection } => Boolean(target.element));
+    const visibility = new Map<MobileSection, number>();
+    const sectionByElement = new Map<Element, MobileSection>(
+      targets.map((target) => [target.element, target.section]),
+    );
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          const section = sectionByElement.get(entry.target);
+          if (section) visibility.set(section, entry.isIntersecting ? entry.intersectionRatio : 0);
+        });
+
+        const visibleSection = [...visibility.entries()].sort((left, right) => right[1] - left[1])[0];
+        if (visibleSection && visibleSection[1] > 0) setMobileSection(visibleSection[0]);
+      },
+      {
+        rootMargin: "-54px 0px -42% 0px",
+        threshold: [0.12, 0.3, 0.55, 0.8],
+      },
+    );
+
+    targets.forEach((target) => observer.observe(target.element));
+    return () => observer.disconnect();
+  }, []);
+
+  function scrollToMobileSection(section: MobileSection) {
+    const target =
+      section === "stage"
+        ? djStageRef.current
+        : section === "playlist"
+          ? playlistPanelRef.current
+          : nowPanelRef.current;
+
+    if (!target) return;
+    setMobileSection(section);
+    target.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
   function focusDjStageOnMobile() {
     if (!window.matchMedia("(max-width: 640px)").matches) return;
 
     window.setTimeout(() => {
+      setMobileSection("stage");
       djStageRef.current?.scrollIntoView({
         behavior: "smooth",
         block: "start",
@@ -2716,8 +2771,38 @@ export default function Home() {
           </div>
         </header>
 
+        <nav className="mobile-view-nav" aria-label="手機快速導覽">
+          <button
+            aria-pressed={mobileSection === "stage"}
+            className={mobileSection === "stage" ? "active" : ""}
+            onClick={() => scrollToMobileSection("stage")}
+            type="button"
+          >
+            <Radio aria-hidden="true" size={15} />
+            <span>舞台</span>
+          </button>
+          <button
+            aria-pressed={mobileSection === "playlist"}
+            className={mobileSection === "playlist" ? "active" : ""}
+            onClick={() => scrollToMobileSection("playlist")}
+            type="button"
+          >
+            <ListMusic aria-hidden="true" size={15} />
+            <span>歌單</span>
+          </button>
+          <button
+            aria-pressed={mobileSection === "now"}
+            className={mobileSection === "now" ? "active" : ""}
+            onClick={() => scrollToMobileSection("now")}
+            type="button"
+          >
+            <Info aria-hidden="true" size={15} />
+            <span>播放資訊</span>
+          </button>
+        </nav>
+
         <section className="hero-grid">
-          <aside className="song-list" aria-label="歌曲清單">
+          <aside className="song-list" aria-label="歌曲清單" ref={playlistPanelRef}>
             <div className="playlist-meta">
               <span>歌曲清單</span>
               <span>
@@ -3229,7 +3314,7 @@ export default function Home() {
             </div>
           </section>
 
-          <aside className="now-panel">
+          <aside className="now-panel" ref={nowPanelRef}>
             <p className="kicker">Now Playing</p>
             <h2>{song.title}</h2>
             <p>{song.artist}</p>
